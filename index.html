@@ -703,7 +703,7 @@ async function doImport(){
     var nume=(c[0]||'').trim().replace(/\r/,'');
     if(!nume) return;
     var ar=(c[1]||'').trim().replace(/\r/,'').toLowerCase();
-    var agentMap={'distribuitori':'Distribuitori','chirii':'Chirii','radu':'Radu','mihaela':'Mihaela','razvanel':'Razvanel','marian':'Marian','ionut':'Ionut','claudiu':'Claudiu','dumitru':'Dumitru','mihai':'Mihai','dumitruC':'DumitruC','dumitruC'.toLowerCase():'DumitruC','virgil':'Virgil'};
+    var agentMap={'distribuitori':'Distribuitori','chirii':'Chirii','radu':'Radu','mihaela':'Mihaela','razvanel':'Razvanel','marian':'Marian','ionut':'Ionut','claudiu':'Claudiu','dumitru':'Dumitru','mihai':'Mihai','dumitruC':'DumitruC','virgil':'Virgil'};
     var agent=agentMap[ar]||agentMap[ar.toLowerCase()]||'Distribuitori';
     imported.push({nume:nume,agent:agent,
       sold:parseNum(c[2]),soldScadent:parseNum(c[3]),
