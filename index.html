@@ -160,6 +160,16 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
 .empty-state .ei{font-size:40px;margin-bottom:12px;}
 .empty-state p{font-size:14px;}
+.search-bar{display:flex;gap:8px;margin-bottom:12px;align-items:center;}
+.search-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:11px 14px;color:var(--text);font-family:var(--mono);font-size:14px;outline:none;}
+.search-input:focus{border-color:var(--accent);}
+.filter-row{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;}
+.filter-row::-webkit-scrollbar{display:none;}
+.fchip{padding:7px 13px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);white-space:nowrap;font-family:var(--font);}
+.fchip.on{background:var(--accent);color:#000;border-color:var(--accent);}
+.sort-btn{background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:11px 13px;color:var(--muted);font-family:var(--mono);font-size:12px;cursor:pointer;white-space:nowrap;}
+.sort-btn.on{border-color:var(--accent);color:var(--accent);}
+.results-count{font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:12px;}
 </style>
 </head>
 <body>
@@ -299,6 +309,9 @@ let adminTab    = 'overview';
 let DATA        = [];   // live from Firestore
 let PASSES      = {...DEFAULT_PASSES};
 let confirmCb   = null;
+let searchQ     = '';
+let filterAgent = 'Toti';
+let sortBy      = 'nume';
 let unsubClients = null;
 
 // ── UTILS ──
@@ -515,6 +528,25 @@ function renderAdmin(){
   });
 
   if(adminTab==='overview'){
+    // Search
+    var si=document.getElementById('searchInput');
+    if(si){
+      si.addEventListener('input',function(){ searchQ=this.value; renderAdmin(); });
+      si.focus();
+    }
+    // Sort toggle
+    var sb=document.getElementById('sortBtn');
+    if(sb){
+      sb.addEventListener('click',function(){
+        sortBy = sortBy==='rest' ? 'zile' : sortBy==='zile' ? 'nume' : 'rest';
+        renderAdmin();
+      });
+    }
+    // Agent filter chips
+    document.querySelectorAll('.fchip').forEach(function(b){
+      b.addEventListener('click',function(){ filterAgent=this.getAttribute('data-agent'); renderAdmin(); });
+    });
+    // Edit/Delete
     document.querySelectorAll('.btn-ec').forEach(function(b){
       b.addEventListener('click',function(){openEdit(this.dataset.id);});
     });
@@ -564,6 +596,8 @@ function buildOverview(){
   var tE=DATA.filter(function(c){return c.estimat!=null;}).reduce(function(s,c){return s+(c.estimat||0);},0);
   var tI=DATA.reduce(function(s,c){return s+(c.incasari||0);},0);
 
+  var agents=['Toti','Distribuitori','Chirii','Radu','Mihaela','Razvanel','Marian','Ionut','Claudiu','Dumitru','Mihai','DumitruC','Virgil'];
+
   var h='<div class="week-info"><span>📅 Săptămâna '+getWeek()+' · '+new Date().toLocaleDateString('ro-RO')+'</span>'
     +'<span class="live-badge"><span class="live-dot"></span>LIVE</span></div>'
     +'<div class="kpi-grid">'
@@ -571,11 +605,37 @@ function buildOverview(){
     +'<div class="kpi-card"><div class="kpi-label">REST TOTAL</div><div class="kpi-value" style="color:var(--orange)">'+fmt(tR)+'</div></div>'
     +'<div class="kpi-card"><div class="kpi-label">ÎNCASĂRI SĂPT.</div><div class="kpi-value" style="color:var(--green)">'+fmt(tI)+'</div></div>'
     +'<div class="kpi-card"><div class="kpi-label">TOTAL ESTIMAT</div><div class="kpi-value" style="color:var(--accent)">'+fmt(tE)+'</div></div>'
-    +'</div><div class="sec-title">Toți clienții ('+DATA.length+')</div>';
+    +'</div>'
+    // Search bar
+    +'<div class="search-bar">'
+    +'<input class="search-input" id="searchInput" placeholder="🔍 Caută după nume client..." value="'+searchQ+'">'
+    +'<button class="sort-btn'+(sortBy==="rest"?" on":"")+'" id="sortBtn">'+( sortBy==="rest"?"↓ Rest":"↓ Sort")+'</button>'
+    +'</div>'
+    // Agent filter chips
+    +'<div class="filter-row">'
+    +agents.map(function(a){ return '<button class="fchip'+(filterAgent===a?' on':'')+'" data-agent="'+a+'">'+(a==='Toti'?'👥 Toți':'🧑 '+a)+'</button>'; }).join('')
+    +'</div>';
+
+  // Apply filters
+  var filtered = DATA.filter(function(c){
+    var matchAgent = filterAgent==='Toti' || c.agent===filterAgent;
+    var matchSearch = !searchQ || c.nume.toLowerCase().indexOf(searchQ.toLowerCase())!==-1;
+    return matchAgent && matchSearch;
+  });
+
+  // Apply sort
+  filtered = filtered.slice().sort(function(a,b){
+    if(sortBy==='rest') return (b.rest||0)-(a.rest||0);
+    if(sortBy==='zile') return (b.zile||0)-(a.zile||0);
+    return (a.nume||'').localeCompare(b.nume||'','ro');
+  });
+
+  h+='<div class="results-count">'+filtered.length+' din '+DATA.length+' clienți</div>';
 
   if(!DATA.length) h+='<div class="empty-state"><div class="ei">📋</div><p>Nu există clienți. Adaugă manual sau importă din Excel.</p></div>';
+  else if(!filtered.length) h+='<div class="empty-state"><div class="ei">🔍</div><p>Niciun client găsit pentru filtrele selectate.</p></div>';
 
-  DATA.forEach(function(c){
+  filtered.forEach(function(c){
     h+='<div class="ac"><div class="ac-head"><div>'
       +'<div class="ac-name">'+c.nume+'</div>'
       +'<div class="ac-sub">🧑 '+c.agent+' · '+c.zile+' zile</div>'
