@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0f1e">
+<title>DistribApp</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0f1e;--surface:#111827;--surface2:#1a2235;--border:#1e2d45;
+  --accent:#00d4ff;--accent2:#7c3aed;--green:#10b981;--orange:#f59e0b;
+  --red:#ef4444;--text:#e2e8f0;--muted:#64748b;
+  --font:'Syne',sans-serif;--mono:'DM Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden;}
+
+/* LOADING */
+#loadingScreen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;}
+.spinner{width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:16px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:13px;color:var(--muted);font-family:var(--mono);}
+
+/* LOGIN */
+#loginScreen{display:none;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:radial-gradient(ellipse at 50% 0%,#1a2a4a,var(--bg) 70%);}
+.logo-icon{width:64px;height:64px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 14px;box-shadow:0 0 40px rgba(0,212,255,.3);}
+.logo-title{font-size:26px;font-weight:800;background:linear-gradient(135deg,#fff 40%,var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;}
+.logo-sub{font-size:12px;color:var(--muted);margin-top:4px;font-family:var(--mono);text-align:center;}
+.logo-wrap{margin-bottom:36px;}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px 22px;width:100%;max-width:380px;box-shadow:0 24px 64px rgba(0,0,0,.5);}
+.login-title{font-size:17px;font-weight:700;margin-bottom:22px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:7px;text-transform:uppercase;letter-spacing:.5px;font-family:var(--mono);}
+.field input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:13px 15px;color:var(--text);font-family:var(--font);font-size:15px;outline:none;transition:border-color .2s;}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,255,.1);}
+.remember-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;cursor:pointer;user-select:none;}
+.chk-box{width:22px;height:22px;border:2px solid var(--border);border-radius:6px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;font-size:13px;color:#000;font-weight:700;}
+.chk-box.on{background:var(--accent);border-color:var(--accent);}
+.remember-label{font-size:13px;color:var(--muted);font-family:var(--mono);}
+.btn-primary{width:100%;background:linear-gradient(135deg,var(--accent),#0099cc);color:#000;font-family:var(--font);font-weight:700;font-size:15px;border:none;border-radius:12px;padding:14px;cursor:pointer;}
+.btn-primary:active{opacity:.85;}
+.error-msg{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:11px 13px;font-size:13px;color:#fca5a5;margin-top:12px;display:none;}
+
+/* APP */
+#app{display:none;min-height:100vh;flex-direction:column;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.topbar-left{display:flex;align-items:center;gap:11px;}
+.topbar-logo{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;}
+.topbar-info h1{font-size:14px;font-weight:700;}
+.topbar-info p{font-size:11px;color:var(--muted);font-family:var(--mono);}
+.topbar-right{display:flex;align-items:center;gap:8px;}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);}
+.sync-dot.off{background:var(--muted);box-shadow:none;}
+.logout-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 13px;color:var(--muted);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;}
+.main-content{flex:1;padding:18px 14px 100px;max-width:600px;margin:0 auto;width:100%;}
+
+/* TABS */
+.tabs{display:flex;gap:5px;margin-bottom:20px;background:var(--surface);padding:5px;border-radius:13px;border:1px solid var(--border);overflow-x:auto;}
+.tab{flex:1;padding:9px 4px;text-align:center;border-radius:9px;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted);border:none;background:none;font-family:var(--font);white-space:nowrap;min-width:0;}
+.tab.active{background:var(--accent);color:#000;}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:18px;margin-bottom:14px;}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.card-title{font-size:14px;font-weight:700;}
+.badge{font-size:11px;font-family:var(--mono);padding:4px 9px;border-radius:20px;}
+.badge-green{background:rgba(16,185,129,.15);color:var(--green);}
+.badge-orange{background:rgba(245,158,11,.15);color:var(--orange);}
+.data-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);}
+.data-row:last-child{border-bottom:none;}
+.data-label{font-size:12px;color:var(--muted);font-family:var(--mono);}
+.data-value{font-size:13px;font-weight:600;font-family:var(--mono);}
+.dv-orange{color:var(--orange);}
+.dv-accent{color:var(--accent);}
+
+/* AGENT */
+.client-card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:16px 18px;margin-bottom:12px;}
+.client-name{font-size:14px;font-weight:700;margin-bottom:10px;}
+.client-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.stat-box{background:var(--surface2);border-radius:9px;padding:9px 11px;}
+.stat-label{font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:3px;text-transform:uppercase;}
+.stat-value{font-size:13px;font-weight:700;font-family:var(--mono);}
+.estimat-section{background:linear-gradient(135deg,rgba(0,212,255,.07),rgba(124,58,237,.07));border:1px solid rgba(0,212,255,.18);border-radius:13px;padding:16px;margin-top:12px;}
+.estimat-title{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:3px;}
+.estimat-desc{font-size:11px;color:var(--muted);margin-bottom:13px;font-family:var(--mono);}
+.est-wrap{display:flex;gap:9px;align-items:center;}
+.est-input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:12px 14px;color:var(--text);font-family:var(--mono);font-size:15px;font-weight:600;outline:none;}
+.est-input:focus{border-color:var(--accent);}
+.btn-send{background:linear-gradient(135deg,var(--accent),#0099cc);color:#000;font-family:var(--font);font-weight:700;font-size:13px;border:none;border-radius:11px;padding:12px 16px;cursor:pointer;white-space:nowrap;}
+.saved-tag{font-size:12px;color:var(--green);font-family:var(--mono);margin-top:10px;}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:18px;}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:14px;}
+.kpi-label{font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:7px;text-transform:uppercase;}
+.kpi-value{font-size:15px;font-weight:800;font-family:var(--mono);}
+
+/* ADMIN LIST */
+.ac{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:14px;margin-bottom:10px;}
+.ac-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.ac-name{font-size:13px;font-weight:700;}
+.ac-sub{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;}
+.ac-btns{display:flex;gap:5px;flex-shrink:0;}
+.ms{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
+.ms-box{background:var(--surface2);border-radius:7px;padding:7px 8px;text-align:center;}
+.ms-lbl{font-size:9px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;}
+.ms-val{font-size:11px;font-weight:700;font-family:var(--mono);margin-top:2px;}
+.btn-e{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.25);color:var(--accent);font-family:var(--font);font-weight:600;font-size:12px;border-radius:7px;padding:5px 10px;cursor:pointer;}
+.btn-d{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red);font-family:var(--font);font-weight:600;font-size:12px;border-radius:7px;padding:5px 10px;cursor:pointer;}
+
+/* FORMS */
+.sec-title{font-size:17px;font-weight:800;margin-bottom:14px;}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.ff{display:flex;flex-direction:column;gap:5px;}
+.ff label{font-size:10px;color:var(--muted);font-family:var(--mono);font-weight:500;text-transform:uppercase;}
+.ff input,.ff select,.ff textarea{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px 11px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;width:100%;-webkit-appearance:none;}
+.ff input:focus,.ff select:focus,.ff textarea:focus{border-color:var(--accent);}
+.fc{grid-column:1/-1;}
+.btn-green{width:100%;background:linear-gradient(135deg,var(--green),#059669);color:#fff;font-family:var(--font);font-weight:700;font-size:14px;border:none;border-radius:11px;padding:13px;cursor:pointer;margin-top:14px;}
+.btn-purple{width:100%;background:linear-gradient(135deg,var(--accent2),#5b21b6);color:#fff;font-family:var(--font);font-weight:700;font-size:14px;border:none;border-radius:11px;padding:13px;cursor:pointer;margin-top:12px;}
+
+/* IMPORT */
+.col-hint{background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:14px;font-size:11px;font-family:var(--mono);color:var(--muted);line-height:1.9;}
+.col-hint b{color:var(--accent);}
+.paste-area{width:100%;min-height:130px;resize:vertical;}
+.pr{background:var(--surface2);border-radius:8px;padding:8px 11px;margin-bottom:5px;font-size:11px;font-family:var(--mono);color:var(--muted);}
+.pr b{color:var(--text);}
+
+/* PASSWORDS */
+.pw-row{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border);}
+.pw-row:last-child{border-bottom:none;}
+.pw-user{font-size:13px;font-weight:700;flex:0 0 120px;}
+.pw-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;}
+.pw-input:focus{border-color:var(--accent);}
+.btn-save-pw{background:var(--accent);color:#000;font-family:var(--font);font-weight:700;font-size:12px;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;white-space:nowrap;}
+
+/* MISC */
+.week-info{background:var(--surface2);border-radius:9px;padding:9px 13px;font-size:11px;font-family:var(--mono);color:var(--muted);margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;}
+.live-badge{font-size:10px;color:var(--green);font-family:var(--mono);display:flex;align-items:center;gap:5px;}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);color:#fff;font-family:var(--font);font-weight:700;font-size:14px;padding:13px 22px;border-radius:40px;opacity:0;transition:all .3s;z-index:9999;white-space:nowrap;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* MODALS */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:flex-end;justify-content:center;}
+.mo.open{display:flex;}
+.md{background:var(--surface);border-radius:20px 20px 0 0;padding:22px 18px 38px;width:100%;max-width:600px;border-top:1px solid var(--border);animation:su .3s ease;max-height:88vh;overflow-y:auto;}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.md-handle{width:38px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 18px;}
+.md-title{font-size:16px;font-weight:800;margin-bottom:18px;}
+.btn-cancel{width:100%;background:none;border:none;color:var(--muted);font-family:var(--font);font-size:14px;padding:13px;cursor:pointer;margin-top:8px;}
+.confirm-body{font-size:14px;color:var(--text);line-height:1.6;margin-bottom:20px;font-family:var(--mono);}
+.confirm-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.btn-cy{background:var(--red);color:#fff;font-family:var(--font);font-weight:700;font-size:14px;border:none;border-radius:11px;padding:13px;cursor:pointer;}
+.btn-cn{background:var(--surface2);color:var(--text);font-family:var(--font);font-weight:700;font-size:14px;border:1px solid var(--border);border-radius:11px;padding:13px;cursor:pointer;}
+
+.empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
+.empty-state .ei{font-size:40px;margin-bottom:12px;}
+.empty-state p{font-size:14px;}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loadingScreen">
+  <div class="spinner"></div>
+  <div class="loading-text">Se conectează la server...</div>
+</div>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="logo-wrap">
+    <div class="logo-icon">📦</div>
+    <div class="logo-title">DistribApp</div>
+    <div class="logo-sub">Sistem de gestiune agenți</div>
+  </div>
+  <div class="login-card">
+    <div class="login-title">Conectare</div>
+    <div class="field">
+      <label>Utilizator</label>
+      <input type="text" id="loginUser" placeholder="Introdu numele de utilizator" autocomplete="username" autocapitalize="none" spellcheck="false">
+    </div>
+    <div class="field">
+      <label>Parolă</label>
+      <input type="password" id="loginPass" placeholder="Introdu parola" autocomplete="current-password">
+    </div>
+    <div class="remember-row" id="rememberRow">
+      <div class="chk-box" id="rememberBox"></div>
+      <span class="remember-label">Ține-mă minte pe acest dispozitiv</span>
+    </div>
+    <button class="btn-primary" id="loginBtn">Conectare →</button>
+    <div class="error-msg" id="loginError">Utilizator sau parolă incorectă.</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo">📦</div>
+      <div class="topbar-info">
+        <h1 id="topbarName">DistribApp</h1>
+        <p id="topbarRole">—</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="sync-dot" id="syncDot" title="Sincronizat live"></div>
+      <button class="logout-btn" id="logoutBtn">Ieșire</button>
+    </div>
+  </div>
+  <div class="main-content" id="mainContent"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- EDIT MODAL -->
+<div class="mo" id="editModal">
+  <div class="md">
+    <div class="md-handle"></div>
+    <div class="md-title">Editează client</div>
+    <input type="hidden" id="editDocId">
+    <div class="fg">
+      <div class="ff fc"><label>Nume Client</label><input type="text" id="editNume"></div>
+      <div class="ff fc"><label>Agent</label>
+        <select id="editAgent">
+          <option value="Distribuitori">Distribuitori</option>
+          <option value="Radu">Radu</option>
+          <option value="Chiri">Chiri</option>
+        </select>
+      </div>
+      <div class="ff"><label>Sold</label><input type="number" id="editSold"></div>
+      <div class="ff"><label>Sold Scadent</label><input type="number" id="editSoldScadent"></div>
+      <div class="ff"><label>Scad. +30 zile</label><input type="number" id="editScadenta"></div>
+      <div class="ff"><label>Încasări săpt.</label><input type="number" id="editIncasari"></div>
+      <div class="ff"><label>Rest de încasat</label><input type="number" id="editRest"></div>
+      <div class="ff"><label>Nr. zile veche fact.</label><input type="number" id="editZile"></div>
+    </div>
+    <button class="btn-green" id="saveEditBtn">Salvează modificările</button>
+    <button class="btn-cancel" id="cancelEditBtn">Anulare</button>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="mo" id="confirmModal">
+  <div class="md">
+    <div class="md-handle"></div>
+    <div class="md-title" id="confirmTitle">Confirmare</div>
+    <div class="confirm-body" id="confirmBody"></div>
+    <div class="confirm-btns">
+      <button class="btn-cn" id="confirmNo">Anulare</button>
+      <button class="btn-cy" id="confirmYes">Confirmă</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, getDoc, writeBatch, serverTimestamp, query, orderBy }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ── FIREBASE CONFIG ──
+const firebaseConfig = {
+  apiKey: "AIzaSyD4wVae6F592YrQ8JfiTPs1seeZwbdzvH4",
+  authDomain: "distribapp-20e2f.firebaseapp.com",
+  projectId: "distribapp-20e2f",
+  storageBucket: "distribapp-20e2f.firebasestorage.app",
+  messagingSenderId: "731147355813",
+  appId: "1:731147355813:web:e7379e6c531c8e9e896f4c"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+// ── COLLECTIONS ──
+const clientsCol  = collection(db, 'clients');
+const settingsCol = collection(db, 'settings');
+
+// ── STATE ──
+const ROLES = {admin:'admin',Distribuitori:'agent',Radu:'agent',Chiri:'agent'};
+const NAMES = {admin:'Administrator',Distribuitori:'Distribuitori',Radu:'Radu',Chiri:'Chiri'};
+const DEFAULT_PASSES = {admin:'admin123',Distribuitori:'dist123',Radu:'radu123',Chiri:'chiri123'};
+
+let currentUser = null;
+let rememberMe  = false;
+let adminTab    = 'overview';
+let DATA        = [];   // live from Firestore
+let PASSES      = {...DEFAULT_PASSES};
+let confirmCb   = null;
+let unsubClients = null;
+
+// ── UTILS ──
+function fmt(n){
+  if(n===null||n===undefined) return '—';
+  var x=Number(n); return isNaN(x)?'—':x.toLocaleString('ro-RO')+' lei';
+}
+function getWeek(){
+  var d=new Date(), s=new Date(d.getFullYear(),0,1);
+  return Math.ceil(((d-s)/86400000+s.getDay()+1)/7);
+}
+function showToast(msg,isErr){
+  var t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.background=isErr?'var(--red)':'var(--green)';
+  t.style.boxShadow=isErr?'0 8px 24px rgba(239,68,68,.4)':'0 8px 24px rgba(16,185,129,.4)';
+  t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},3000);
+}
+function setSyncDot(on){
+  var d=document.getElementById('syncDot');
+  if(d) d.classList.toggle('off',!on);
+}
+
+// ── CONFIRM MODAL ──
+function showConfirm(title,body,cb,yesLabel){
+  document.getElementById('confirmTitle').textContent=title||'Confirmare';
+  document.getElementById('confirmBody').textContent=body||'';
+  document.getElementById('confirmYes').textContent=yesLabel||'Confirmă';
+  confirmCb=cb;
+  document.getElementById('confirmModal').classList.add('open');
+}
+document.getElementById('confirmYes').addEventListener('click',function(){
+  document.getElementById('confirmModal').classList.remove('open');
+  if(confirmCb) confirmCb(); confirmCb=null;
+});
+document.getElementById('confirmNo').addEventListener('click',function(){
+  document.getElementById('confirmModal').classList.remove('open'); confirmCb=null;
+});
+
+// ── LOAD PASSWORDS FROM FIRESTORE ──
+async function loadPasswords(){
+  try{
+    var snap = await getDoc(doc(settingsCol,'passwords'));
+    if(snap.exists()) PASSES = {...DEFAULT_PASSES,...snap.data()};
+    else PASSES = {...DEFAULT_PASSES};
+  }catch(e){ PASSES={...DEFAULT_PASSES}; }
+}
+async function savePasswords(){
+  await setDoc(doc(settingsCol,'passwords'), PASSES);
+}
+
+// ── INIT ──
+async function init(){
+  await loadPasswords();
+  document.getElementById('loadingScreen').style.display='none';
+
+  // Auto login
+  try{
+    var saved=localStorage.getItem('distrib_saved');
+    if(saved){
+      var o=JSON.parse(saved);
+      if(PASSES[o.key]&&PASSES[o.key]===o.pass){ loginAs(o.key); return; }
+    }
+  }catch(e){}
+
+  document.getElementById('loginScreen').style.display='flex';
+}
+init();
+
+// ── AUTH ──
+function loginAs(key){
+  currentUser={key:key,role:ROLES[key],name:NAMES[key]};
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('topbarName').textContent=NAMES[key];
+  document.getElementById('topbarRole').textContent=ROLES[key]==='admin'?'Administrator':'Agent';
+  startLiveSync();
+}
+
+document.getElementById('loginBtn').addEventListener('click',async function(){
+  var u=document.getElementById('loginUser').value.trim();
+  var p=document.getElementById('loginPass').value;
+  var err=document.getElementById('loginError');
+  await loadPasswords();
+  var key=Object.keys(PASSES).find(function(k){return k.toLowerCase()===u.toLowerCase();});
+  if(!key||PASSES[key]!==p){ err.style.display='block'; return; }
+  err.style.display='none';
+  if(rememberMe){ try{localStorage.setItem('distrib_saved',JSON.stringify({key:key,pass:p}));}catch(e){} }
+  loginAs(key);
+});
+
+document.getElementById('logoutBtn').addEventListener('click',function(){
+  try{localStorage.removeItem('distrib_saved');}catch(e){}
+  if(unsubClients){ unsubClients(); unsubClients=null; }
+  currentUser=null; DATA=[];
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('app').style.display='none';
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginUser').value='';
+  rememberMe=false;
+  document.getElementById('rememberBox').classList.remove('on');
+  document.getElementById('rememberBox').textContent='';
+});
+
+document.getElementById('loginPass').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('loginBtn').click();});
+document.getElementById('loginUser').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('loginPass').focus();});
+
+// ── REMEMBER ──
+document.getElementById('rememberRow').addEventListener('click',function(){
+  rememberMe=!rememberMe;
+  document.getElementById('rememberBox').classList.toggle('on',rememberMe);
+  document.getElementById('rememberBox').textContent=rememberMe?'✓':'';
+});
+
+// ── LIVE SYNC (Firestore onSnapshot) ──
+function startLiveSync(){
+  setSyncDot(false);
+  var q = query(clientsCol, orderBy('createdAt','asc'));
+  unsubClients = onSnapshot(q, function(snapshot){
+    DATA = snapshot.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
+    setSyncDot(true);
+    render();
+  }, function(err){
+    setSyncDot(false);
+    showToast('⚠️ Eroare conexiune',true);
+  });
+}
+
+// ── RENDER ──
+function render(){
+  if(!currentUser) return;
+  currentUser.role==='admin' ? renderAdmin() : renderAgent();
+}
+
+// ══════════════════════════════════════
+// AGENT VIEW
+// ══════════════════════════════════════
+function renderAgent(){
+  var mine=DATA.filter(function(c){return c.agent===currentUser.name;});
+  var tR=mine.reduce(function(s,c){return s+(c.rest||0);},0);
+  var tE=mine.filter(function(c){return c.estimat!==null&&c.estimat!==undefined;}).reduce(function(s,c){return s+(c.estimat||0);},0);
+  var cnt=mine.filter(function(c){return c.estimat!==null&&c.estimat!==undefined;}).length;
+
+  var h='<div class="week-info"><span>📅 Săptămâna '+getWeek()+' · '+new Date().toLocaleDateString('ro-RO')+'</span>'
+    +'<span class="live-badge"><span class="live-dot"></span>LIVE</span></div>'
+    +'<div class="kpi-grid">'
+    +'<div class="kpi-card"><div class="kpi-label">REST TOTAL</div><div class="kpi-value" style="color:var(--orange);font-size:14px">'+fmt(tR)+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">ESTIMAT MEU</div><div class="kpi-value" style="color:var(--accent);font-size:14px">'+(cnt>0?fmt(tE):'—')+'</div></div>'
+    +'</div>'
+    +'<div class="sec-title">Clienții mei ('+mine.length+')</div>';
+
+  if(!mine.length){
+    h+='<div class="empty-state"><div class="ei">📭</div><p>Nu ai clienți asignați momentan.</p></div>';
+  }
+
+  mine.forEach(function(c){
+    var zc=c.zile>90?'var(--red)':c.zile>45?'var(--orange)':'var(--green)';
+    var hasEst=c.estimat!==null&&c.estimat!==undefined;
+    h+='<div class="client-card">'
+      +'<div class="client-name">'+c.nume+'</div>'
+      +'<div class="client-stats">'
+      +'<div class="stat-box"><div class="stat-label">Sold Total</div><div class="stat-value" style="font-size:12px">'+fmt(c.sold)+'</div></div>'
+      +'<div class="stat-box"><div class="stat-label">Rest Încasat</div><div class="stat-value" style="color:var(--orange);font-size:12px">'+fmt(c.rest)+'</div></div>'
+      +'<div class="stat-box"><div class="stat-label">Scad. +30 zile</div><div class="stat-value" style="font-size:12px">'+(c.scadenta30?fmt(c.scadenta30):'—')+'</div></div>'
+      +'<div class="stat-box"><div class="stat-label">Zile veche fact.</div><div class="stat-value" style="color:'+zc+'">'+c.zile+' zile</div></div>'
+      +'</div>'
+      +'<div class="estimat-section">'
+      +'<div class="estimat-title">📊 Estimat încasare săptămânală</div>'
+      +'<div class="estimat-desc">Câți lei estimezi că vei încasa săptămâna aceasta?</div>'
+      +'<div class="est-wrap">'
+      +'<input class="est-input" type="number" id="est_'+c.id+'" inputmode="numeric" placeholder="0 lei" value="'+(hasEst?c.estimat:'')+'">'
+      +'<button class="btn-send" data-id="'+c.id+'">Trimite</button>'
+      +'</div>'
+      +(hasEst?'<div class="saved-tag">✓ Trimis: '+fmt(c.estimat)+'</div>':'')
+      +'</div></div>';
+  });
+
+  document.getElementById('mainContent').innerHTML=h;
+
+  document.querySelectorAll('.btn-send').forEach(function(b){
+    b.addEventListener('click',async function(){
+      var id=this.getAttribute('data-id');
+      var v=parseFloat(document.getElementById('est_'+id).value);
+      if(isNaN(v)||v<0){showToast('⚠️ Sumă invalidă',true);return;}
+      try{
+        await updateDoc(doc(db,'clients',id),{estimat:v,estimatUpdatedAt:serverTimestamp()});
+        showToast('✓ Estimat trimis!');
+      }catch(e){showToast('⚠️ Eroare la salvare',true);}
+    });
+  });
+}
+
+// ══════════════════════════════════════
+// ADMIN VIEW
+// ══════════════════════════════════════
+function renderAdmin(){
+  var tabLabels={overview:'📊 Clienți',agents:'👥 Estimări',add:'+ Adaugă',import:'📥 Import',passwords:'🔑 Parole'};
+  var tabs='<div class="tabs">'+Object.keys(tabLabels).map(function(k){
+    return '<button class="tab'+(adminTab===k?' active':'')+'" data-tab="'+k+'">'+tabLabels[k]+'</button>';
+  }).join('')+'</div>';
+
+  var body='';
+  if(adminTab==='overview')    body=buildOverview();
+  else if(adminTab==='agents') body=buildAgents();
+  else if(adminTab==='add')    body=buildAdd();
+  else if(adminTab==='import') body=buildImport();
+  else if(adminTab==='passwords') body=buildPasswords();
+
+  document.getElementById('mainContent').innerHTML=tabs+body;
+
+  document.querySelectorAll('.tab').forEach(function(b){
+    b.addEventListener('click',function(){adminTab=this.getAttribute('data-tab');renderAdmin();});
+  });
+
+  if(adminTab==='overview'){
+    document.querySelectorAll('.btn-ec').forEach(function(b){
+      b.addEventListener('click',function(){openEdit(this.dataset.id);});
+    });
+    document.querySelectorAll('.btn-dc').forEach(function(b){
+      b.addEventListener('click',function(){
+        var id=this.dataset.id;
+        var c=DATA.find(function(x){return x.id===id;});
+        showConfirm('Șterge client','Ștergi clientul "'+c.nume+'"? Această acțiune nu poate fi anulată.',async function(){
+          try{ await deleteDoc(doc(db,'clients',id)); showToast('✓ Client șters'); }
+          catch(e){ showToast('⚠️ Eroare la ștergere',true); }
+        },'Șterge');
+      });
+    });
+  }
+  if(adminTab==='add')    document.getElementById('addBtn').addEventListener('click',addClient);
+  if(adminTab==='import'){
+    document.getElementById('pasteArea').addEventListener('input',previewImport);
+    document.getElementById('importBtn').addEventListener('click',doImport);
+    document.getElementById('resetBtn').addEventListener('click',function(){
+      showConfirm('Resetare date','Ștergi TOȚI cei '+DATA.length+' clienți din baza de date? Această acțiune NU poate fi anulată.',async function(){
+        try{
+          var batch=writeBatch(db);
+          DATA.forEach(function(c){ batch.delete(doc(db,'clients',c.id)); });
+          await batch.commit();
+          showToast('✓ Toate datele au fost șterse');
+        }catch(e){ showToast('⚠️ Eroare la resetare',true); }
+      },'Șterge tot');
+    });
+  }
+  if(adminTab==='passwords'){
+    document.querySelectorAll('.pw-save-btn').forEach(function(b){
+      b.addEventListener('click',async function(){
+        var key=this.dataset.key;
+        var val=document.getElementById('pw_'+key).value.trim();
+        if(!val||val.length<4){showToast('⚠️ Parola trebuie să aibă cel puțin 4 caractere',true);return;}
+        PASSES[key]=val;
+        try{ await savePasswords(); showToast('✓ Parola pentru '+NAMES[key]+' salvată!'); }
+        catch(e){ showToast('⚠️ Eroare la salvare',true); }
+      });
+    });
+  }
+}
+
+function buildOverview(){
+  var tS=DATA.reduce(function(s,c){return s+(c.sold||0);},0);
+  var tR=DATA.reduce(function(s,c){return s+(c.rest||0);},0);
+  var tE=DATA.filter(function(c){return c.estimat!=null;}).reduce(function(s,c){return s+(c.estimat||0);},0);
+  var tI=DATA.reduce(function(s,c){return s+(c.incasari||0);},0);
+
+  var h='<div class="week-info"><span>📅 Săptămâna '+getWeek()+' · '+new Date().toLocaleDateString('ro-RO')+'</span>'
+    +'<span class="live-badge"><span class="live-dot"></span>LIVE</span></div>'
+    +'<div class="kpi-grid">'
+    +'<div class="kpi-card"><div class="kpi-label">SOLD TOTAL</div><div class="kpi-value">'+fmt(tS)+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">REST TOTAL</div><div class="kpi-value" style="color:var(--orange)">'+fmt(tR)+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">ÎNCASĂRI SĂPT.</div><div class="kpi-value" style="color:var(--green)">'+fmt(tI)+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">TOTAL ESTIMAT</div><div class="kpi-value" style="color:var(--accent)">'+fmt(tE)+'</div></div>'
+    +'</div><div class="sec-title">Toți clienții ('+DATA.length+')</div>';
+
+  if(!DATA.length) h+='<div class="empty-state"><div class="ei">📋</div><p>Nu există clienți. Adaugă manual sau importă din Excel.</p></div>';
+
+  DATA.forEach(function(c){
+    h+='<div class="ac"><div class="ac-head"><div>'
+      +'<div class="ac-name">'+c.nume+'</div>'
+      +'<div class="ac-sub">🧑 '+c.agent+' · '+c.zile+' zile</div>'
+      +'</div><div class="ac-btns">'
+      +'<button class="btn-e btn-ec" data-id="'+c.id+'">✏️</button>'
+      +'<button class="btn-d btn-dc" data-id="'+c.id+'">✕</button>'
+      +'</div></div>'
+      +'<div class="ms">'
+      +'<div class="ms-box"><div class="ms-lbl">Sold</div><div class="ms-val">'+fmt(c.sold)+'</div></div>'
+      +'<div class="ms-box"><div class="ms-lbl">Rest</div><div class="ms-val" style="color:var(--orange)">'+fmt(c.rest)+'</div></div>'
+      +'<div class="ms-box"><div class="ms-lbl">Estimat</div><div class="ms-val" style="color:var(--accent)">'+(c.estimat!=null?fmt(c.estimat):'—')+'</div></div>'
+      +'</div></div>';
+  });
+  return h;
+}
+
+function buildAgents(){
+  var agents=['Distribuitori','Radu','Chiri'];
+  var h='<div class="sec-title">Estimări pe agenți</div>';
+  agents.forEach(function(ag){
+    var cl=DATA.filter(function(c){return c.agent===ag;});
+    var tR=cl.reduce(function(s,c){return s+(c.rest||0);},0);
+    var tE=cl.filter(function(c){return c.estimat!=null;}).reduce(function(s,c){return s+(c.estimat||0);},0);
+    var cnt=cl.filter(function(c){return c.estimat!=null;}).length;
+    h+='<div class="card"><div class="card-header"><div class="card-title">🧑 '+ag+'</div>'
+      +'<span class="badge '+(cnt===cl.length&&cl.length>0?'badge-green':'badge-orange')+'">'+cnt+'/'+cl.length+' estimări</span></div>'
+      +'<div class="data-row"><span class="data-label">Rest total de încasat</span><span class="data-value dv-orange">'+fmt(tR)+'</span></div>'
+      +'<div class="data-row"><span class="data-label">Estimat săptămânal total</span><span class="data-value dv-accent">'+(cnt>0?fmt(tE):'— lipsă')+'</span></div>';
+    cl.forEach(function(c){
+      var n=c.nume.length>32?c.nume.substring(0,32)+'…':c.nume;
+      h+='<div class="data-row" style="padding-left:8px"><span class="data-label" style="font-size:11px">'+n+'</span>'
+        +'<span class="data-value" style="font-size:12px;color:'+(c.estimat!=null?'var(--accent)':'var(--muted)')+';">'+(c.estimat!=null?fmt(c.estimat):'—')+'</span></div>';
+    });
+    h+='</div>';
+  });
+  return h;
+}
+
+function buildAdd(){
+  return '<div class="sec-title">Adaugă client nou</div><div class="card"><div class="fg">'
+    +'<div class="ff fc"><label>Nume Client</label><input type="text" id="addNume" placeholder="ex: FIRMA SRL"></div>'
+    +'<div class="ff fc"><label>Agent</label><select id="addAgent"><option value="Distribuitori">Distribuitori</option><option value="Radu">Radu</option><option value="Chiri">Chiri</option></select></div>'
+    +'<div class="ff"><label>Sold</label><input type="number" id="addSold" placeholder="0"></div>'
+    +'<div class="ff"><label>Sold Scadent</label><input type="number" id="addSoldScadent" placeholder="0"></div>'
+    +'<div class="ff"><label>Scad. +30 zile</label><input type="number" id="addScadenta" placeholder="0"></div>'
+    +'<div class="ff"><label>Încasări săpt.</label><input type="number" id="addIncasari" placeholder="0"></div>'
+    +'<div class="ff"><label>Rest de încasat</label><input type="number" id="addRest" placeholder="0"></div>'
+    +'<div class="ff"><label>Nr. zile veche fact.</label><input type="number" id="addZile" placeholder="0"></div>'
+    +'</div><button class="btn-green" id="addBtn">+ Adaugă client</button></div>';
+}
+
+async function addClient(){
+  var n=(document.getElementById('addNume').value||'').trim();
+  if(!n){showToast('⚠️ Introdu numele clientului',true);return;}
+  try{
+    await addDoc(clientsCol,{
+      nume:n, agent:document.getElementById('addAgent').value,
+      sold:parseFloat(document.getElementById('addSold').value)||0,
+      soldScadent:parseFloat(document.getElementById('addSoldScadent').value)||0,
+      scadenta30:parseFloat(document.getElementById('addScadenta').value)||0,
+      incasari:parseFloat(document.getElementById('addIncasari').value)||0,
+      rest:parseFloat(document.getElementById('addRest').value)||0,
+      zile:parseInt(document.getElementById('addZile').value)||0,
+      estimat:null, createdAt:serverTimestamp()
+    });
+    showToast('✓ Client adăugat!'); adminTab='overview'; renderAdmin();
+  }catch(e){ showToast('⚠️ Eroare la adăugare',true); }
+}
+
+// ── IMPORT ──
+function buildImport(){
+  return '<div class="sec-title">Import din Excel</div>'
+    +'<div class="card">'
+    +'<div class="col-hint"><b>Pași:</b><br>'
+    +'1. Deschide Excel / Google Sheets<br>'
+    +'2. Selectează rândurile cu date (fără header)<br>'
+    +'3. Copiază cu Ctrl+C / Cmd+C<br>'
+    +'4. Lipește mai jos cu Ctrl+V / Cmd+V<br>'
+    +'5. Apasă „Importă"<br><br>'
+    +'<b>Ordinea coloanelor:</b><br>'
+    +'A: Nume client &nbsp;·&nbsp; B: Agent<br>'
+    +'C: Sold &nbsp;·&nbsp; D: Sold scadent &nbsp;·&nbsp; E: Scad. +30 zile<br>'
+    +'F: Încasări săpt. &nbsp;·&nbsp; G: Rest de încasat &nbsp;·&nbsp; H: Nr. zile</div>'
+    +'<div class="ff"><label>Date din Excel (lipește aici)</label>'
+    +'<textarea class="ff paste-area" id="pasteArea" placeholder="Lipește datele copiate din Excel..."></textarea></div>'
+    +'<div id="importPreview" style="margin-top:10px"></div>'
+    +'<button class="btn-purple" id="importBtn">📥 Importă date în cloud</button>'
+    +'</div>'
+    +'<div class="card">'
+    +'<div class="card-title" style="margin-bottom:8px;color:var(--red)">⚠️ Resetare date</div>'
+    +'<div style="font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:12px;line-height:1.6">Șterge complet toți clienții din baza de date cloud.</div>'
+    +'<button class="btn-d" id="resetBtn" style="width:100%;padding:12px;border-radius:10px;font-size:13px">🗑️ Șterge toate datele</button>'
+    +'</div>';
+}
+
+function parseNum(s){
+  if(!s||s.trim()===''||s.trim()==='-') return 0;
+  var clean=s.replace(/\s/g,'');
+  if(clean.indexOf('.')!==-1&&clean.indexOf(',')!==-1) clean=clean.replace(/\./g,'').replace(',','.');
+  else clean=clean.replace(',','.');
+  return parseFloat(clean)||0;
+}
+
+function previewImport(){
+  var raw=(document.getElementById('pasteArea').value||'').trim();
+  var prev=document.getElementById('importPreview');
+  if(!raw){prev.innerHTML='';return;}
+  var rows=raw.split('\n').filter(function(r){return r.trim();});
+  var h='<div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">'+rows.length+' rânduri detectate</div>';
+  rows.slice(0,4).forEach(function(r){
+    var c=r.split('\t');
+    h+='<div class="pr"><b>'+(c[0]||'?').trim()+'</b> · '+(c[1]||'?').trim()+' · Sold: '+(c[2]||'0')+' · Rest: '+(c[6]||'0')+'</div>';
+  });
+  if(rows.length>4) h+='<div class="pr" style="color:var(--muted)">... și încă '+(rows.length-4)+' rânduri</div>';
+  prev.innerHTML=h;
+}
+
+async function doImport(){
+  var raw=(document.getElementById('pasteArea').value||'').trim();
+  if(!raw){showToast('⚠️ Lipește date mai întâi',true);return;}
+  var rows=raw.split('\n').filter(function(r){return r.trim();});
+  var imported=[];
+  rows.forEach(function(r){
+    var c=r.split('\t');
+    var nume=(c[0]||'').trim().replace(/\r/,'');
+    if(!nume) return;
+    var ar=(c[1]||'').trim().replace(/\r/,'').toLowerCase();
+    var agent=ar==='radu'?'Radu':ar==='chiri'?'Chiri':'Distribuitori';
+    imported.push({nume:nume,agent:agent,
+      sold:parseNum(c[2]),soldScadent:parseNum(c[3]),
+      scadenta30:parseNum(c[4]),incasari:parseNum(c[5]),
+      rest:parseNum(c[6]),zile:parseNum(c[7]),
+      estimat:null,createdAt:serverTimestamp()});
+  });
+  if(!imported.length){showToast('⚠️ Nu s-au detectat date valide',true);return;}
+
+  showConfirm(
+    'Importă '+imported.length+' clienți',
+    'Cei '+imported.length+' clienți vor fi adăugați în baza de date cloud și vor apărea instant pe toate dispozitivele. Continuați?',
+    async function(){
+      try{
+        // Firestore allows max 500 per batch
+        var chunks=[];
+        for(var i=0;i<imported.length;i+=400) chunks.push(imported.slice(i,i+400));
+        for(var ci=0;ci<chunks.length;ci++){
+          var batch=writeBatch(db);
+          chunks[ci].forEach(function(item){ batch.set(doc(clientsCol),item); });
+          await batch.commit();
+        }
+        showToast('✓ '+imported.length+' clienți importați cu succes!');
+        adminTab='overview'; renderAdmin();
+      }catch(e){ showToast('⚠️ Eroare la import: '+e.message,true); }
+    },
+    'Importă'
+  );
+}
+
+function buildPasswords(){
+  var users=['Distribuitori','Radu','Chiri','admin'];
+  var h='<div class="sec-title">🔑 Gestionează parole</div>'
+    +'<div class="card">'
+    +'<div style="font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:16px;line-height:1.6">'
+    +'Parolele sunt salvate în cloud și se aplică pe toate dispozitivele imediat.<br>Comunică parola fiecărui agent personal.</div>';
+  users.forEach(function(key){
+    h+='<div class="pw-row">'
+      +'<div class="pw-user">'+(key==='admin'?'👑 Admin':'🧑 '+NAMES[key])+'</div>'
+      +'<input class="pw-input" type="text" id="pw_'+key+'" placeholder="Parola nouă..." value="'+PASSES[key]+'">'
+      +'<button class="btn-save-pw pw-save-btn" data-key="'+key+'">Salvează</button>'
+      +'</div>';
+  });
+  h+='</div>'
+    +'<div class="card" style="background:rgba(0,212,255,0.04);border-color:rgba(0,212,255,0.15)">'
+    +'<div style="font-size:12px;font-family:var(--mono);color:var(--muted);line-height:1.8">'
+    +'<b style="color:var(--accent)">Conturi și accese:</b><br>'
+    +'👑 admin → vede tot, gestionează date, parole, import<br>'
+    +'🚚 Distribuitori → vede doar clienții lui, trimite estimat<br>'
+    +'👤 Radu → vede doar clienții lui, trimite estimat<br>'
+    +'👤 Chiri → vede doar clienții lui, trimite estimat'
+    +'</div></div>';
+  return h;
+}
+
+// ── EDIT CLIENT ──
+function openEdit(id){
+  var c=DATA.find(function(x){return x.id===id;});
+  if(!c) return;
+  document.getElementById('editDocId').value=id;
+  document.getElementById('editNume').value=c.nume;
+  document.getElementById('editAgent').value=c.agent;
+  document.getElementById('editSold').value=c.sold||0;
+  document.getElementById('editSoldScadent').value=c.soldScadent||0;
+  document.getElementById('editScadenta').value=c.scadenta30||0;
+  document.getElementById('editIncasari').value=c.incasari||0;
+  document.getElementById('editRest').value=c.rest||0;
+  document.getElementById('editZile').value=c.zile||0;
+  document.getElementById('editModal').classList.add('open');
+}
+function closeEdit(){ document.getElementById('editModal').classList.remove('open'); }
+
+document.getElementById('saveEditBtn').addEventListener('click',async function(){
+  var id=document.getElementById('editDocId').value;
+  try{
+    await updateDoc(doc(db,'clients',id),{
+      nume:document.getElementById('editNume').value.trim(),
+      agent:document.getElementById('editAgent').value,
+      sold:parseFloat(document.getElementById('editSold').value)||0,
+      soldScadent:parseFloat(document.getElementById('editSoldScadent').value)||0,
+      scadenta30:parseFloat(document.getElementById('editScadenta').value)||0,
+      incasari:parseFloat(document.getElementById('editIncasari').value)||0,
+      rest:parseFloat(document.getElementById('editRest').value)||0,
+      zile:parseInt(document.getElementById('editZile').value)||0
+    });
+    closeEdit(); showToast('✓ Client actualizat!');
+  }catch(e){ showToast('⚠️ Eroare la salvare',true); }
+});
+document.getElementById('cancelEditBtn').addEventListener('click',closeEdit);
+document.getElementById('editModal').addEventListener('click',function(e){if(e.target===this)closeEdit();});
+
+</script>
+</body>
+</html>
