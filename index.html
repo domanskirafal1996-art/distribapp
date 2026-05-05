@@ -227,8 +227,17 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
       <div class="ff fc"><label>Agent</label>
         <select id="editAgent">
           <option value="Distribuitori">Distribuitori</option>
+          <option value="Chirii">Chirii</option>
           <option value="Radu">Radu</option>
-          <option value="Chiri">Chiri</option>
+          <option value="Mihaela">Mihaela</option>
+          <option value="Razvanel">Razvanel</option>
+          <option value="Marian">Marian</option>
+          <option value="Ionut">Ionut</option>
+          <option value="Claudiu">Claudiu</option>
+          <option value="Dumitru">Dumitru</option>
+          <option value="Mihai">Mihai</option>
+          <option value="DumitruC">DumitruC</option>
+          <option value="Virgil">Virgil</option>
         </select>
       </div>
       <div class="ff"><label>Sold</label><input type="number" id="editSold"></div>
@@ -280,9 +289,9 @@ const clientsCol  = collection(db, 'clients');
 const settingsCol = collection(db, 'settings');
 
 // ── STATE ──
-const ROLES = {admin:'admin',Distribuitori:'agent',Radu:'agent',Chiri:'agent'};
-const NAMES = {admin:'Administrator',Distribuitori:'Distribuitori',Radu:'Radu',Chiri:'Chiri'};
-const DEFAULT_PASSES = {admin:'admin123',Distribuitori:'dist123',Radu:'radu123',Chiri:'chiri123'};
+const ROLES = {admin:'admin',Distribuitori:'agent',Chirii:'agent',Radu:'agent',Mihaela:'agent',Razvanel:'agent',Marian:'agent',Ionut:'agent',Claudiu:'agent',Dumitru:'agent',Mihai:'agent',DumitruC:'agent',Virgil:'agent'};
+const NAMES = {admin:'Administrator',Distribuitori:'Distribuitori',Chirii:'Chirii',Radu:'Radu',Mihaela:'Mihaela',Razvanel:'Razvanel',Marian:'Marian',Ionut:'Ionut',Claudiu:'Claudiu',Dumitru:'Dumitru',Mihai:'Mihai',DumitruC:'DumitruC',Virgil:'Virgil'};
+const DEFAULT_PASSES = {admin:'admin123',Distribuitori:'dist123',Chirii:'chirii123',Radu:'radu123',Mihaela:'mihaela123',Razvanel:'razvanel123',Marian:'marian123',Ionut:'ionut123',Claudiu:'claudiu123',Dumitru:'dumitru123',Mihai:'mihai123',DumitruC:'dumitruC123',Virgil:'virgil123'};
 
 let currentUser = null;
 let rememberMe  = false;
@@ -584,7 +593,7 @@ function buildOverview(){
 }
 
 function buildAgents(){
-  var agents=['Distribuitori','Radu','Chiri'];
+  var agents=['Distribuitori','Chirii','Radu','Mihaela','Razvanel','Marian','Ionut','Claudiu','Dumitru','Mihai','DumitruC','Virgil'];
   var h='<div class="sec-title">Estimări pe agenți</div>';
   agents.forEach(function(ag){
     var cl=DATA.filter(function(c){return c.agent===ag;});
@@ -608,7 +617,7 @@ function buildAgents(){
 function buildAdd(){
   return '<div class="sec-title">Adaugă client nou</div><div class="card"><div class="fg">'
     +'<div class="ff fc"><label>Nume Client</label><input type="text" id="addNume" placeholder="ex: FIRMA SRL"></div>'
-    +'<div class="ff fc"><label>Agent</label><select id="addAgent"><option value="Distribuitori">Distribuitori</option><option value="Radu">Radu</option><option value="Chiri">Chiri</option></select></div>'
+    +'<div class="ff fc"><label>Agent</label><select id="addAgent"><option value="Distribuitori">Distribuitori</option><option value="Chirii">Chirii</option><option value="Radu">Radu</option><option value="Mihaela">Mihaela</option><option value="Razvanel">Razvanel</option><option value="Marian">Marian</option><option value="Ionut">Ionut</option><option value="Claudiu">Claudiu</option><option value="Dumitru">Dumitru</option><option value="Mihai">Mihai</option><option value="DumitruC">DumitruC</option><option value="Virgil">Virgil</option></select></div>'
     +'<div class="ff"><label>Sold</label><input type="number" id="addSold" placeholder="0"></div>'
     +'<div class="ff"><label>Sold Scadent</label><input type="number" id="addSoldScadent" placeholder="0"></div>'
     +'<div class="ff"><label>Scad. +30 zile</label><input type="number" id="addScadenta" placeholder="0"></div>'
@@ -694,7 +703,8 @@ async function doImport(){
     var nume=(c[0]||'').trim().replace(/\r/,'');
     if(!nume) return;
     var ar=(c[1]||'').trim().replace(/\r/,'').toLowerCase();
-    var agent=ar==='radu'?'Radu':ar==='chiri'?'Chiri':'Distribuitori';
+    var agentMap={'distribuitori':'Distribuitori','chirii':'Chirii','radu':'Radu','mihaela':'Mihaela','razvanel':'Razvanel','marian':'Marian','ionut':'Ionut','claudiu':'Claudiu','dumitru':'Dumitru','mihai':'Mihai','dumitruC':'DumitruC','dumitruC'.toLowerCase():'DumitruC','virgil':'Virgil'};
+    var agent=agentMap[ar]||agentMap[ar.toLowerCase()]||'Distribuitori';
     imported.push({nume:nume,agent:agent,
       sold:parseNum(c[2]),soldScadent:parseNum(c[3]),
       scadenta30:parseNum(c[4]),incasari:parseNum(c[5]),
@@ -725,7 +735,7 @@ async function doImport(){
 }
 
 function buildPasswords(){
-  var users=['Distribuitori','Radu','Chiri','admin'];
+  var users=['admin','Distribuitori','Chirii','Radu','Mihaela','Razvanel','Marian','Ionut','Claudiu','Dumitru','Mihai','DumitruC','Virgil'];
   var h='<div class="sec-title">🔑 Gestionează parole</div>'
     +'<div class="card">'
     +'<div style="font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:16px;line-height:1.6">'
@@ -742,9 +752,7 @@ function buildPasswords(){
     +'<div style="font-size:12px;font-family:var(--mono);color:var(--muted);line-height:1.8">'
     +'<b style="color:var(--accent)">Conturi și accese:</b><br>'
     +'👑 admin → vede tot, gestionează date, parole, import<br>'
-    +'🚚 Distribuitori → vede doar clienții lui, trimite estimat<br>'
-    +'👤 Radu → vede doar clienții lui, trimite estimat<br>'
-    +'👤 Chiri → vede doar clienții lui, trimite estimat'
+    +'🚚 Distribuitori, Chirii, Radu, Mihaela, Razvanel, Marian,<br>Ionut, Claudiu, Dumitru, Mihai, DumitruC, Virgil<br>→ fiecare vede doar clienții lui și trimite estimat'
     +'</div></div>';
   return h;
 }
