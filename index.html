@@ -170,6 +170,13 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .sort-btn{background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:11px 13px;color:var(--muted);font-family:var(--mono);font-size:12px;cursor:pointer;white-space:nowrap;}
 .sort-btn.on{border-color:var(--accent);color:var(--accent);}
 .results-count{font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:12px;}
+.section-divider{display:flex;align-items:center;gap:10px;margin:20px 0 12px;}
+.section-divider-label{font-size:12px;font-weight:700;font-family:var(--mono);white-space:nowrap;}
+.section-divider-line{flex:1;height:1px;background:var(--border);}
+.client-card.pending{border-color:rgba(245,158,11,0.4);background:linear-gradient(135deg,rgba(245,158,11,0.04),var(--surface));}
+.client-card.done{border-color:rgba(16,185,129,0.25);opacity:0.85;}
+.pending-badge{display:inline-block;background:rgba(245,158,11,0.15);color:var(--orange);font-size:10px;font-family:var(--mono);font-weight:700;padding:3px 8px;border-radius:20px;margin-bottom:8px;}
+.done-badge{display:inline-block;background:rgba(16,185,129,0.15);color:var(--green);font-size:10px;font-family:var(--mono);font-weight:700;padding:3px 8px;border-radius:20px;margin-bottom:8px;}
 </style>
 </head>
 <body>
@@ -312,6 +319,7 @@ let confirmCb   = null;
 let searchQ     = '';
 let filterAgent = 'Toti';
 let sortBy      = 'nume';
+let agentSearchQ = '';
 let unsubClients = null;
 
 // ── UTILS ──
@@ -450,11 +458,43 @@ function render(){
 // ══════════════════════════════════════
 // AGENT VIEW
 // ══════════════════════════════════════
+function buildClientCard(c){
+  var zc=c.zile>90?'var(--red)':c.zile>45?'var(--orange)':'var(--green)';
+  var hasEst=c.estimat!==null&&c.estimat!==undefined;
+  return '<div class="client-card '+(hasEst?'done':'pending')+'">'
+    +(hasEst?'<div class="done-badge">✓ Estimat completat</div>':'<div class="pending-badge">⏳ Necesită estimat</div>')
+    +'<div class="client-name">'+c.nume+'</div>'
+    +'<div class="client-stats">'
+    +'<div class="stat-box"><div class="stat-label">Sold Total</div><div class="stat-value" style="font-size:12px">'+fmt(c.sold)+'</div></div>'
+    +'<div class="stat-box"><div class="stat-label">Rest Încasat</div><div class="stat-value" style="color:var(--orange);font-size:12px">'+fmt(c.rest)+'</div></div>'
+    +'<div class="stat-box"><div class="stat-label">Scad. +30 zile</div><div class="stat-value" style="font-size:12px">'+(c.scadenta30?fmt(c.scadenta30):'—')+'</div></div>'
+    +'<div class="stat-box"><div class="stat-label">Zile veche fact.</div><div class="stat-value" style="color:'+zc+'">'+c.zile+' zile</div></div>'
+    +'</div>'
+    +'<div class="estimat-section">'
+    +'<div class="estimat-title">📊 Estimat încasare săptămânală</div>'
+    +'<div class="estimat-desc">Câți lei estimezi că vei încasa săptămâna aceasta?</div>'
+    +'<div class="est-wrap">'
+    +'<input class="est-input" type="number" id="est_'+c.id+'" inputmode="numeric" placeholder="0 lei" value="'+(hasEst?c.estimat:'')+'">'
+    +'<button class="btn-send" data-id="'+c.id+'">Trimite</button>'
+    +'</div>'
+    +(hasEst?'<div class="saved-tag">✓ Trimis: '+fmt(c.estimat)+'</div>':'')
+    +'</div></div>';
+}
+
 function renderAgent(){
   var mine=DATA.filter(function(c){return c.agent===currentUser.name;});
   var tR=mine.reduce(function(s,c){return s+(c.rest||0);},0);
   var tE=mine.filter(function(c){return c.estimat!==null&&c.estimat!==undefined;}).reduce(function(s,c){return s+(c.estimat||0);},0);
   var cnt=mine.filter(function(c){return c.estimat!==null&&c.estimat!==undefined;}).length;
+  var pending=mine.filter(function(c){return c.estimat===null||c.estimat===undefined;});
+  var done=mine.filter(function(c){return c.estimat!==null&&c.estimat!==undefined;});
+
+  // Apply search
+  var filtered=mine.filter(function(c){
+    return !agentSearchQ || c.nume.toLowerCase().indexOf(agentSearchQ.toLowerCase())!==-1;
+  });
+  var filteredPending=filtered.filter(function(c){return c.estimat===null||c.estimat===undefined;});
+  var filteredDone=filtered.filter(function(c){return c.estimat!==null&&c.estimat!==undefined;});
 
   var h='<div class="week-info"><span>📅 Săptămâna '+getWeek()+' · '+new Date().toLocaleDateString('ro-RO')+'</span>'
     +'<span class="live-badge"><span class="live-dot"></span>LIVE</span></div>'
@@ -462,35 +502,50 @@ function renderAgent(){
     +'<div class="kpi-card"><div class="kpi-label">REST TOTAL</div><div class="kpi-value" style="color:var(--orange);font-size:14px">'+fmt(tR)+'</div></div>'
     +'<div class="kpi-card"><div class="kpi-label">ESTIMAT MEU</div><div class="kpi-value" style="color:var(--accent);font-size:14px">'+(cnt>0?fmt(tE):'—')+'</div></div>'
     +'</div>'
-    +'<div class="sec-title">Clienții mei ('+mine.length+')</div>';
+    // Progress bar
+    +'<div style="background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:12px 14px;margin-bottom:18px;">'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
+    +'<span style="font-size:11px;font-family:var(--mono);color:var(--muted);">PROGRES ESTIMĂRI</span>'
+    +'<span style="font-size:11px;font-family:var(--mono);font-weight:700;color:'+(cnt===mine.length&&mine.length>0?'var(--green)':'var(--orange)')+'">'+cnt+'/'+mine.length+'</span>'
+    +'</div>'
+    +'<div style="background:var(--surface2);border-radius:20px;height:8px;overflow:hidden;">'
+    +'<div style="height:100%;border-radius:20px;background:linear-gradient(90deg,var(--accent),var(--green));width:'+(mine.length>0?Math.round(cnt/mine.length*100):0)+'%;transition:width 0.4s;"></div>'
+    +'</div></div>'
+    // Search bar
+    +'<div class="search-bar">'
+    +'<input class="search-input" id="agentSearchInput" placeholder="🔍 Caută după nume client..." value="'+agentSearchQ+'">'
+    +'</div>';
 
   if(!mine.length){
     h+='<div class="empty-state"><div class="ei">📭</div><p>Nu ai clienți asignați momentan.</p></div>';
+  } else if(!filtered.length){
+    h+='<div class="empty-state"><div class="ei">🔍</div><p>Niciun client găsit.</p></div>';
+  } else {
+    // PENDING section
+    if(filteredPending.length){
+      h+='<div class="section-divider">'
+        +'<span class="section-divider-label" style="color:var(--orange)">⏳ NECESITĂ ESTIMAT ('+filteredPending.length+')</span>'
+        +'<span class="section-divider-line"></span>'
+        +'</div>';
+      filteredPending.forEach(function(c){ h+=buildClientCard(c); });
+    }
+    // DONE section
+    if(filteredDone.length){
+      h+='<div class="section-divider">'
+        +'<span class="section-divider-label" style="color:var(--green)">✓ COMPLETATE ('+filteredDone.length+')</span>'
+        +'<span class="section-divider-line"></span>'
+        +'</div>';
+      filteredDone.forEach(function(c){ h+=buildClientCard(c); });
+    }
   }
 
-  mine.forEach(function(c){
-    var zc=c.zile>90?'var(--red)':c.zile>45?'var(--orange)':'var(--green)';
-    var hasEst=c.estimat!==null&&c.estimat!==undefined;
-    h+='<div class="client-card">'
-      +'<div class="client-name">'+c.nume+'</div>'
-      +'<div class="client-stats">'
-      +'<div class="stat-box"><div class="stat-label">Sold Total</div><div class="stat-value" style="font-size:12px">'+fmt(c.sold)+'</div></div>'
-      +'<div class="stat-box"><div class="stat-label">Rest Încasat</div><div class="stat-value" style="color:var(--orange);font-size:12px">'+fmt(c.rest)+'</div></div>'
-      +'<div class="stat-box"><div class="stat-label">Scad. +30 zile</div><div class="stat-value" style="font-size:12px">'+(c.scadenta30?fmt(c.scadenta30):'—')+'</div></div>'
-      +'<div class="stat-box"><div class="stat-label">Zile veche fact.</div><div class="stat-value" style="color:'+zc+'">'+c.zile+' zile</div></div>'
-      +'</div>'
-      +'<div class="estimat-section">'
-      +'<div class="estimat-title">📊 Estimat încasare săptămânală</div>'
-      +'<div class="estimat-desc">Câți lei estimezi că vei încasa săptămâna aceasta?</div>'
-      +'<div class="est-wrap">'
-      +'<input class="est-input" type="number" id="est_'+c.id+'" inputmode="numeric" placeholder="0 lei" value="'+(hasEst?c.estimat:'')+'">'
-      +'<button class="btn-send" data-id="'+c.id+'">Trimite</button>'
-      +'</div>'
-      +(hasEst?'<div class="saved-tag">✓ Trimis: '+fmt(c.estimat)+'</div>':'')
-      +'</div></div>';
-  });
-
   document.getElementById('mainContent').innerHTML=h;
+
+  // Search listener
+  var asi=document.getElementById('agentSearchInput');
+  if(asi){
+    asi.addEventListener('input',function(){ agentSearchQ=this.value; renderAgent(); });
+  }
 
   document.querySelectorAll('.btn-send').forEach(function(b){
     b.addEventListener('click',async function(){
