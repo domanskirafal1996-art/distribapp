@@ -259,10 +259,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
       </div>
       <div class="ff"><label>Sold</label><input type="number" id="editSold"></div>
       <div class="ff"><label>Sold Scadent</label><input type="number" id="editSoldScadent"></div>
-      <div class="ff"><label>Scad. +30 zile</label><input type="number" id="editScadenta"></div>
-      <div class="ff"><label>Încasări săpt.</label><input type="number" id="editIncasari"></div>
-      <div class="ff"><label>Rest de încasat</label><input type="number" id="editRest"></div>
       <div class="ff"><label>Nr. zile veche fact.</label><input type="number" id="editZile"></div>
+      <div class="ff"><label>Încasări săpt.</label><input type="number" id="editIncasari"></div>
     </div>
     <button class="btn-green" id="saveEditBtn">Salvează modificările</button>
     <button class="btn-cancel" id="cancelEditBtn">Anulare</button>
@@ -465,10 +463,10 @@ function buildClientCard(c){
     +(hasEst?'<div class="done-badge">✓ Estimat completat</div>':'<div class="pending-badge">⏳ Necesită estimat</div>')
     +'<div class="client-name">'+c.nume+'</div>'
     +'<div class="client-stats">'
-    +'<div class="stat-box"><div class="stat-label">Sold Total</div><div class="stat-value" style="font-size:12px">'+fmt(c.sold)+'</div></div>'
-    +'<div class="stat-box"><div class="stat-label">Rest Încasat</div><div class="stat-value" style="color:var(--orange);font-size:12px">'+fmt(c.rest)+'</div></div>'
-    +'<div class="stat-box"><div class="stat-label">Scad. +30 zile</div><div class="stat-value" style="font-size:12px">'+(c.scadenta30?fmt(c.scadenta30):'—')+'</div></div>'
+    +'<div class="stat-box"><div class="stat-label">Sold</div><div class="stat-value" style="font-size:12px">'+fmt(c.sold)+'</div></div>'
+    +'<div class="stat-box"><div class="stat-label">Sold Scadent</div><div class="stat-value" style="color:var(--orange);font-size:12px">'+fmt(c.soldScadent)+'</div></div>'
     +'<div class="stat-box"><div class="stat-label">Zile veche fact.</div><div class="stat-value" style="color:'+zc+'">'+c.zile+' zile</div></div>'
+    +'<div class="stat-box"><div class="stat-label">Încasări săpt.</div><div class="stat-value" style="color:var(--green);font-size:12px">'+fmt(c.incasari)+'</div></div>'
     +'</div>'
     +'<div class="estimat-section">'
     +'<div class="estimat-title">📊 Estimat încasare săptămânală</div>'
@@ -482,7 +480,7 @@ function buildClientCard(c){
 }
 
 function renderAgent(){
-  var mine=DATA.filter(function(c){return c.agent===currentUser.name;});
+  var mine=DATA.filter(function(c){return c.agent===currentUser.name;}).slice().sort(function(a,b){return (a.nume||'').localeCompare(b.nume||'','ro');});
   var tR=mine.reduce(function(s,c){return s+(c.rest||0);},0);
   var tE=mine.filter(function(c){return c.estimat!==null&&c.estimat!==undefined;}).reduce(function(s,c){return s+(c.estimat||0);},0);
   var cnt=mine.filter(function(c){return c.estimat!==null&&c.estimat!==undefined;}).length;
@@ -700,7 +698,7 @@ function buildOverview(){
       +'</div></div>'
       +'<div class="ms">'
       +'<div class="ms-box"><div class="ms-lbl">Sold</div><div class="ms-val">'+fmt(c.sold)+'</div></div>'
-      +'<div class="ms-box"><div class="ms-lbl">Rest</div><div class="ms-val" style="color:var(--orange)">'+fmt(c.rest)+'</div></div>'
+      +'<div class="ms-box"><div class="ms-lbl">Sold Scadent</div><div class="ms-val" style="color:var(--orange)">'+fmt(c.soldScadent)+'</div></div>'
       +'<div class="ms-box"><div class="ms-lbl">Estimat</div><div class="ms-val" style="color:var(--accent)">'+(c.estimat!=null?fmt(c.estimat):'—')+'</div></div>'
       +'</div></div>';
   });
@@ -735,10 +733,8 @@ function buildAdd(){
     +'<div class="ff fc"><label>Agent</label><select id="addAgent"><option value="Distribuitori">Distribuitori</option><option value="Chirii">Chirii</option><option value="Radu">Radu</option><option value="Mihaela">Mihaela</option><option value="Razvanel">Razvanel</option><option value="Marian">Marian</option><option value="Ionut">Ionut</option><option value="Claudiu">Claudiu</option><option value="Dumitru">Dumitru</option><option value="Mihai">Mihai</option><option value="DumitruC">DumitruC</option><option value="Virgil">Virgil</option></select></div>'
     +'<div class="ff"><label>Sold</label><input type="number" id="addSold" placeholder="0"></div>'
     +'<div class="ff"><label>Sold Scadent</label><input type="number" id="addSoldScadent" placeholder="0"></div>'
-    +'<div class="ff"><label>Scad. +30 zile</label><input type="number" id="addScadenta" placeholder="0"></div>'
-    +'<div class="ff"><label>Încasări săpt.</label><input type="number" id="addIncasari" placeholder="0"></div>'
-    +'<div class="ff"><label>Rest de încasat</label><input type="number" id="addRest" placeholder="0"></div>'
     +'<div class="ff"><label>Nr. zile veche fact.</label><input type="number" id="addZile" placeholder="0"></div>'
+    +'<div class="ff"><label>Încasări săpt.</label><input type="number" id="addIncasari" placeholder="0"></div>'
     +'</div><button class="btn-green" id="addBtn">+ Adaugă client</button></div>';
 }
 
@@ -750,10 +746,9 @@ async function addClient(){
       nume:n, agent:document.getElementById('addAgent').value,
       sold:parseFloat(document.getElementById('addSold').value)||0,
       soldScadent:parseFloat(document.getElementById('addSoldScadent').value)||0,
-      scadenta30:parseFloat(document.getElementById('addScadenta').value)||0,
-      incasari:parseFloat(document.getElementById('addIncasari').value)||0,
-      rest:parseFloat(document.getElementById('addRest').value)||0,
       zile:parseInt(document.getElementById('addZile').value)||0,
+      incasari:parseFloat(document.getElementById('addIncasari').value)||0,
+      scadenta30:0, rest:0,
       estimat:null, createdAt:serverTimestamp()
     });
     showToast('✓ Client adăugat!'); adminTab='overview'; renderAdmin();
@@ -771,9 +766,9 @@ function buildImport(){
     +'4. Lipește mai jos cu Ctrl+V / Cmd+V<br>'
     +'5. Apasă „Importă"<br><br>'
     +'<b>Ordinea coloanelor:</b><br>'
-    +'A: Nume client &nbsp;·&nbsp; B: Agent<br>'
-    +'C: Sold &nbsp;·&nbsp; D: Sold scadent &nbsp;·&nbsp; E: Scad. +30 zile<br>'
-    +'F: Încasări săpt. &nbsp;·&nbsp; G: Rest de încasat &nbsp;·&nbsp; H: Nr. zile</div>'
+    +'A: Nume firmă &nbsp;·&nbsp; B: Agent<br>'
+    +'C: Sold &nbsp;·&nbsp; D: Sold scadent<br>'
+    +'E: Nr. zile cea mai veche factură &nbsp;·&nbsp; F: Încasări săpt. actuală</div>'
     +'<div class="ff"><label>Date din Excel (lipește aici)</label>'
     +'<textarea class="ff paste-area" id="pasteArea" placeholder="Lipește datele copiate din Excel..."></textarea></div>'
     +'<div id="importPreview" style="margin-top:10px"></div>'
@@ -802,7 +797,7 @@ function previewImport(){
   var h='<div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">'+rows.length+' rânduri detectate</div>';
   rows.slice(0,4).forEach(function(r){
     var c=r.split('\t');
-    h+='<div class="pr"><b>'+(c[0]||'?').trim()+'</b> · '+(c[1]||'?').trim()+' · Sold: '+(c[2]||'0')+' · Rest: '+(c[6]||'0')+'</div>';
+    h+='<div class="pr"><b>'+(c[0]||'?').trim()+'</b> · '+(c[1]||'?').trim()+' · Sold: '+(c[2]||'0')+' · Zile: '+(c[4]||'0')+'</div>';
   });
   if(rows.length>4) h+='<div class="pr" style="color:var(--muted)">... și încă '+(rows.length-4)+' rânduri</div>';
   prev.innerHTML=h;
@@ -822,8 +817,8 @@ async function doImport(){
     var agent=agentMap[ar]||'Distribuitori';
     imported.push({nume:nume,agent:agent,
       sold:parseNum(c[2]),soldScadent:parseNum(c[3]),
-      scadenta30:parseNum(c[4]),incasari:parseNum(c[5]),
-      rest:parseNum(c[6]),zile:parseNum(c[7]),
+      zile:parseNum(c[4]),incasari:parseNum(c[5]),
+      scadenta30:0,rest:0,
       estimat:null,createdAt:serverTimestamp()});
   });
   if(!imported.length){showToast('⚠️ Nu s-au detectat date valide',true);return;}
@@ -881,10 +876,8 @@ function openEdit(id){
   document.getElementById('editAgent').value=c.agent;
   document.getElementById('editSold').value=c.sold||0;
   document.getElementById('editSoldScadent').value=c.soldScadent||0;
-  document.getElementById('editScadenta').value=c.scadenta30||0;
-  document.getElementById('editIncasari').value=c.incasari||0;
-  document.getElementById('editRest').value=c.rest||0;
   document.getElementById('editZile').value=c.zile||0;
+  document.getElementById('editIncasari').value=c.incasari||0;
   document.getElementById('editModal').classList.add('open');
 }
 function closeEdit(){ document.getElementById('editModal').classList.remove('open'); }
@@ -897,10 +890,8 @@ document.getElementById('saveEditBtn').addEventListener('click',async function()
       agent:document.getElementById('editAgent').value,
       sold:parseFloat(document.getElementById('editSold').value)||0,
       soldScadent:parseFloat(document.getElementById('editSoldScadent').value)||0,
-      scadenta30:parseFloat(document.getElementById('editScadenta').value)||0,
-      incasari:parseFloat(document.getElementById('editIncasari').value)||0,
-      rest:parseFloat(document.getElementById('editRest').value)||0,
-      zile:parseInt(document.getElementById('editZile').value)||0
+      zile:parseInt(document.getElementById('editZile').value)||0,
+      incasari:parseFloat(document.getElementById('editIncasari').value)||0
     });
     closeEdit(); showToast('✓ Client actualizat!');
   }catch(e){ showToast('⚠️ Eroare la salvare',true); }
