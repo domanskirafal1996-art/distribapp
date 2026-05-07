@@ -489,16 +489,22 @@ function renderAgent(){
 
   // Apply search
   var filtered=mine.filter(function(c){
-    return !agentSearchQ || c.nume.toLowerCase().indexOf(agentSearchQ.toLowerCase())!==-1;
+    return !agentSearchQ || c.nume.toLowerCase().startsWith(agentSearchQ.toLowerCase());
   });
   var filteredPending=filtered.filter(function(c){return c.estimat===null||c.estimat===undefined;});
   var filteredDone=filtered.filter(function(c){return c.estimat!==null&&c.estimat!==undefined;});
 
+  var aSold=mine.reduce(function(s,c){return s+(c.sold||0);},0);
+  var aSoldSc=mine.reduce(function(s,c){return s+(c.soldScadent||0);},0);
+  var aInc=mine.reduce(function(s,c){return s+(c.incasari||0);},0);
+
   var h='<div class="week-info"><span>📅 Săptămâna '+getWeek()+' · '+new Date().toLocaleDateString('ro-RO')+'</span>'
     +'<span class="live-badge"><span class="live-dot"></span>LIVE</span></div>'
     +'<div class="kpi-grid">'
-    +'<div class="kpi-card"><div class="kpi-label">REST TOTAL</div><div class="kpi-value" style="color:var(--orange);font-size:14px">'+fmt(tR)+'</div></div>'
-    +'<div class="kpi-card"><div class="kpi-label">ESTIMAT MEU</div><div class="kpi-value" style="color:var(--accent);font-size:14px">'+(cnt>0?fmt(tE):'—')+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">SOLD TOTAL</div><div class="kpi-value" style="font-size:13px">'+fmt(aSold)+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">SOLD SCADENT</div><div class="kpi-value" style="color:var(--orange);font-size:13px">'+fmt(aSoldSc)+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">ÎNCASĂRI SĂPT.</div><div class="kpi-value" style="color:var(--green);font-size:13px">'+fmt(aInc)+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">ESTIMAT MEU</div><div class="kpi-value" style="color:var(--accent);font-size:13px">'+(cnt>0?fmt(tE):'—')+'</div></div>'
     +'</div>'
     // Progress bar
     +'<div style="background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:12px 14px;margin-bottom:18px;">'
@@ -511,7 +517,8 @@ function renderAgent(){
     +'</div></div>'
     // Search bar
     +'<div class="search-bar">'
-    +'<input class="search-input" id="agentSearchInput" placeholder="🔍 Caută după nume client..." value="'+agentSearchQ+'">'
+    +'<input class="search-input" id="agentSearchInput" placeholder="🔍 Scrie și apasă Enter..." value="'+agentSearchQ+'">'
+    +(agentSearchQ?'<button class="sort-btn on" id="clearAgentSearch">✕ Șterge</button>':'')
     +'</div>';
 
   if(!mine.length){
@@ -542,8 +549,12 @@ function renderAgent(){
   // Search listener
   var asi=document.getElementById('agentSearchInput');
   if(asi){
-    asi.addEventListener('input',function(){ agentSearchQ=this.value; renderAgent(); });
+    asi.addEventListener('keydown',function(e){
+      if(e.key==='Enter'){ e.preventDefault(); agentSearchQ=this.value.trim(); renderAgent(); }
+    });
   }
+  var cag=document.getElementById('clearAgentSearch');
+  if(cag){ cag.addEventListener('click',function(){ agentSearchQ=''; renderAgent(); }); }
 
   document.querySelectorAll('.btn-send').forEach(function(b){
     b.addEventListener('click',async function(){
@@ -584,9 +595,13 @@ function renderAdmin(){
     // Search
     var si=document.getElementById('searchInput');
     if(si){
-      si.addEventListener('input',function(){ searchQ=this.value; renderAdmin(); });
-      si.focus();
+      si.addEventListener('keydown',function(e){
+        if(e.key==='Enter'){ e.preventDefault(); searchQ=this.value.trim(); renderAdmin(); }
+      });
     }
+    // Clear search
+    var cs=document.getElementById('clearSearch');
+    if(cs){ cs.addEventListener('click',function(){ searchQ=''; renderAdmin(); }); }
     // Sort toggle
     var sb=document.getElementById('sortBtn');
     if(sb){
@@ -644,25 +659,27 @@ function renderAdmin(){
 }
 
 function buildOverview(){
-  var tS=DATA.reduce(function(s,c){return s+(c.sold||0);},0);
-  var tR=DATA.reduce(function(s,c){return s+(c.rest||0);},0);
-  var tE=DATA.filter(function(c){return c.estimat!=null;}).reduce(function(s,c){return s+(c.estimat||0);},0);
-  var tI=DATA.reduce(function(s,c){return s+(c.incasari||0);},0);
-
   var agents=['Toti','Distribuitori','Chirii','Radu','Mihaela','Razvanel','Marian','Ionut','Claudiu','Dumitru','Mihai','DumitruC','Virgil'];
+
+  // KPI filtered by selected agent
+  var kpiData = filterAgent==='Toti' ? DATA : DATA.filter(function(c){return c.agent===filterAgent;});
+  var kS=kpiData.reduce(function(s,c){return s+(c.sold||0);},0);
+  var kSc=kpiData.reduce(function(s,c){return s+(c.soldScadent||0);},0);
+  var kI=kpiData.reduce(function(s,c){return s+(c.incasari||0);},0);
+  var kE=kpiData.filter(function(c){return c.estimat!=null;}).reduce(function(s,c){return s+(c.estimat||0);},0);
 
   var h='<div class="week-info"><span>📅 Săptămâna '+getWeek()+' · '+new Date().toLocaleDateString('ro-RO')+'</span>'
     +'<span class="live-badge"><span class="live-dot"></span>LIVE</span></div>'
     +'<div class="kpi-grid">'
-    +'<div class="kpi-card"><div class="kpi-label">SOLD TOTAL</div><div class="kpi-value">'+fmt(tS)+'</div></div>'
-    +'<div class="kpi-card"><div class="kpi-label">REST TOTAL</div><div class="kpi-value" style="color:var(--orange)">'+fmt(tR)+'</div></div>'
-    +'<div class="kpi-card"><div class="kpi-label">ÎNCASĂRI SĂPT.</div><div class="kpi-value" style="color:var(--green)">'+fmt(tI)+'</div></div>'
-    +'<div class="kpi-card"><div class="kpi-label">TOTAL ESTIMAT</div><div class="kpi-value" style="color:var(--accent)">'+fmt(tE)+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">SOLD TOTAL'+(filterAgent!=='Toti'?' · '+filterAgent:'')+'</div><div class="kpi-value">'+fmt(kS)+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">SOLD SCADENT'+(filterAgent!=='Toti'?' · '+filterAgent:'')+'</div><div class="kpi-value" style="color:var(--orange)">'+fmt(kSc)+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">ÎNCASĂRI SĂPT.'+(filterAgent!=='Toti'?' · '+filterAgent:'')+'</div><div class="kpi-value" style="color:var(--green)">'+fmt(kI)+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">TOTAL ESTIMAT'+(filterAgent!=='Toti'?' · '+filterAgent:'')+'</div><div class="kpi-value" style="color:var(--accent)">'+fmt(kE)+'</div></div>'
     +'</div>'
     // Search bar
     +'<div class="search-bar">'
-    +'<input class="search-input" id="searchInput" placeholder="🔍 Caută după nume client..." value="'+searchQ+'">'
-    +'<button class="sort-btn'+(sortBy==="rest"?" on":"")+'" id="sortBtn">'+( sortBy==="rest"?"↓ Rest":"↓ Sort")+'</button>'
+    +'<input class="search-input" id="searchInput" placeholder="🔍 Scrie și apasă Enter..." value="'+searchQ+'">'
+    +(searchQ?'<button class="sort-btn on" id="clearSearch">✕ Șterge</button>':'<button class="sort-btn'+(sortBy==="rest"?" on":"")+'" id="sortBtn">'+( sortBy==="rest"?"↓ Scadent":"↓ Sort")+'</button>')
     +'</div>'
     // Agent filter chips
     +'<div class="filter-row">'
@@ -672,14 +689,14 @@ function buildOverview(){
   // Apply filters
   var filtered = DATA.filter(function(c){
     var matchAgent = filterAgent==='Toti' || c.agent===filterAgent;
-    var matchSearch = !searchQ || c.nume.toLowerCase().indexOf(searchQ.toLowerCase())!==-1;
+    var matchSearch = !searchQ || c.nume.toLowerCase().startsWith(searchQ.toLowerCase());
     return matchAgent && matchSearch;
   });
 
-  // Apply sort
+  // Apply sort - always alphabetical when searching
   filtered = filtered.slice().sort(function(a,b){
-    if(sortBy==='rest') return (b.rest||0)-(a.rest||0);
-    if(sortBy==='zile') return (b.zile||0)-(a.zile||0);
+    if(!searchQ && sortBy==='rest') return (b.soldScadent||0)-(a.soldScadent||0);
+    if(!searchQ && sortBy==='zile') return (b.zile||0)-(a.zile||0);
     return (a.nume||'').localeCompare(b.nume||'','ro');
   });
 
