@@ -573,7 +573,7 @@ function renderAgent(){
 // ADMIN VIEW
 // ══════════════════════════════════════
 function renderAdmin(){
-  var tabLabels={overview:'📊 Clienți',agents:'👥 Estimări',add:'+ Adaugă',import:'📥 Import',passwords:'🔑 Parole'};
+  var tabLabels={overview:'📊 Clienți',agents:'👥 Estimări',add:'+ Adaugă',import:'📥 Import',export:'📤 Export',passwords:'🔑 Parole'};
   var tabs='<div class="tabs">'+Object.keys(tabLabels).map(function(k){
     return '<button class="tab'+(adminTab===k?' active':'')+'" data-tab="'+k+'">'+tabLabels[k]+'</button>';
   }).join('')+'</div>';
@@ -583,6 +583,7 @@ function renderAdmin(){
   else if(adminTab==='agents') body=buildAgents();
   else if(adminTab==='add')    body=buildAdd();
   else if(adminTab==='import') body=buildImport();
+  else if(adminTab==='export')    body=buildExport();
   else if(adminTab==='passwords') body=buildPasswords();
 
   document.getElementById('mainContent').innerHTML=tabs+body;
@@ -642,6 +643,14 @@ function renderAdmin(){
           showToast('✓ Toate datele au fost șterse');
         }catch(e){ showToast('⚠️ Eroare la resetare',true); }
       },'Șterge tot');
+    });
+  }
+  if(adminTab==='export'){
+    document.getElementById('exportAllBtn').addEventListener('click', function(){ doExport('all'); });
+    document.getElementById('exportWeekBtn').addEventListener('click', function(){ doExport('week'); });
+    // Agent export buttons
+    document.querySelectorAll('.export-agent-btn').forEach(function(b){
+      b.addEventListener('click', function(){ doExport('agent', this.dataset.agent); });
     });
   }
   if(adminTab==='passwords'){
@@ -859,6 +868,86 @@ async function doImport(){
     },
     'Importă'
   );
+}
+
+function buildExport(){
+  var agents=['Distribuitori','Chirii','Radu','Mihaela','Razvanel','Marian','Ionut','Claudiu','Dumitru','Mihai','DumitruC','Virgil'];
+  var totalEst=DATA.filter(function(c){return c.estimat!=null;}).length;
+  var totalFara=DATA.filter(function(c){return c.estimat==null;}).length;
+
+  var h='<div class="sec-title">📤 Export date</div>'
+    +'<div class="card" style="background:rgba(0,212,255,0.04);border-color:rgba(0,212,255,0.2);margin-bottom:16px;">'
+    +'<div style="font-size:12px;font-family:var(--mono);color:var(--muted);line-height:1.8;margin-bottom:14px;">'
+    +'📋 <b style="color:var(--text)">'+DATA.length+' clienți</b> în total &nbsp;·&nbsp; '
+    +'<b style="color:var(--green)">'+totalEst+' cu estimat</b> &nbsp;·&nbsp; '
+    +'<b style="color:var(--orange)">'+totalFara+' fără estimat</b><br>'
+    +'Câmpurile necompletate vor apărea ca <b style="color:var(--text)">-</b> în Excel.'
+    +'</div>'
+    +'<button class="btn-green" id="exportAllBtn" style="margin-top:0;margin-bottom:10px;">📥 Exportă toți clienții ('+DATA.length+')</button>'
+    +'<button class="btn-purple" id="exportWeekBtn" style="margin-top:0;">📊 Exportă doar cei cu estimat ('+totalEst+')</button>'
+    +'</div>'
+    +'<div class="sec-title" style="font-size:14px;">Export pe agent</div>';
+
+  agents.forEach(function(ag){
+    var cl=DATA.filter(function(c){return c.agent===ag;});
+    if(!cl.length) return;
+    var est=cl.filter(function(c){return c.estimat!=null;}).length;
+    h+='<div class="card" style="padding:14px;margin-bottom:8px;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;">'
+      +'<div>'
+      +'<div style="font-size:13px;font-weight:700;">🧑 '+ag+'</div>'
+      +'<div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:3px;">'+cl.length+' clienți · '+est+'/'+cl.length+' estimări</div>'
+      +'</div>'
+      +'<button class="btn-e export-agent-btn" data-agent="'+ag+'" style="padding:8px 14px;font-size:12px;">📥 Export</button>'
+      +'</div></div>';
+  });
+
+  return h;
+}
+
+function doExport(type, agentName){
+  var rows;
+  if(type==='all') rows = DATA.slice();
+  else if(type==='week') rows = DATA.filter(function(c){return c.estimat!=null;});
+  else if(type==='agent') rows = DATA.filter(function(c){return c.agent===agentName;});
+
+  rows = rows.slice().sort(function(a,b){return (a.agent||'').localeCompare(b.agent||'','ro') || (a.nume||'').localeCompare(b.nume||'','ro');});
+
+  // Build CSV with BOM for Excel Romanian compatibility
+  var BOM = '﻿';
+  var header = ['Nume Client','Agent','Sold','Sold Scadent','Nr. Zile Veche Fact.','Incasari Sapt.','Estimat Incasare','Sapt.'];
+  var lines = [header.join('	')];
+
+  rows.forEach(function(c){
+    var line = [
+      c.nume||'',
+      c.agent||'',
+      c.sold!=null ? String(c.sold).replace('.',',') : '-',
+      c.soldScadent!=null ? String(c.soldScadent).replace('.',',') : '-',
+      c.zile!=null ? c.zile : '-',
+      c.incasari!=null ? String(c.incasari).replace('.',',') : '-',
+      c.estimat!=null ? String(c.estimat).replace('.',',') : '-',
+      'Sapt '+getWeek()+'/'+new Date().getFullYear()
+    ].join('	');
+    lines.push(line);
+  });
+
+  var csv = BOM + lines.join('
+');
+  var blob = new Blob([csv], {type:'text/tab-separated-values;charset=utf-8'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  var date = new Date().toLocaleDateString('ro-RO').replace(/\//g,'-');
+  var filename = type==='agent'
+    ? 'distribapp_'+agentName+'_sapt'+getWeek()+'_'+date+'.xls'
+    : type==='week'
+    ? 'distribapp_estimari_sapt'+getWeek()+'_'+date+'.xls'
+    : 'distribapp_complet_sapt'+getWeek()+'_'+date+'.xls';
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('✓ Export descărcat: '+filename);
 }
 
 function buildPasswords(){
