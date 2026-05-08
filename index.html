@@ -907,46 +907,42 @@ function buildExport(){
 
 function doExport(type, agentName){
   var rows;
-  if(type==='all') rows = DATA.slice();
-  else if(type==='week') rows = DATA.filter(function(c){return c.estimat!=null;});
-  else if(type==='agent') rows = DATA.filter(function(c){return c.agent===agentName;});
-
-  rows = rows.slice().sort(function(a,b){return (a.agent||'').localeCompare(b.agent||'','ro') || (a.nume||'').localeCompare(b.nume||'','ro');});
-
-  // Build CSV with BOM for Excel Romanian compatibility
-  var BOM = '﻿';
-  var header = ['Nume Client','Agent','Sold','Sold Scadent','Nr. Zile Veche Fact.','Incasari Sapt.','Estimat Incasare','Sapt.'];
-  var lines = [header.join('	')];
-
+  if(type==='all') rows=DATA.slice();
+  else if(type==='week') rows=DATA.filter(function(c){return c.estimat!=null;});
+  else if(type==='agent') rows=DATA.filter(function(c){return c.agent===agentName;});
+  rows=rows.slice().sort(function(a,b){
+    return (a.agent||'').localeCompare(b.agent||'','ro')||(a.nume||'').localeCompare(b.nume||'','ro');
+  });
+  var SEP=String.fromCharCode(9);
+  var NL=String.fromCharCode(10);
+  var BOM=String.fromCharCode(65279);
+  var cols=['Nume Client','Agent','Sold','Sold Scadent','Nr. Zile','Incasari Sapt.','Estimat','Saptamana'];
+  var lines=[cols.join(SEP)];
   rows.forEach(function(c){
-    var line = [
+    var r=[
       c.nume||'',
       c.agent||'',
-      c.sold!=null ? String(c.sold).replace('.',',') : '-',
-      c.soldScadent!=null ? String(c.soldScadent).replace('.',',') : '-',
-      c.zile!=null ? c.zile : '-',
-      c.incasari!=null ? String(c.incasari).replace('.',',') : '-',
-      c.estimat!=null ? String(c.estimat).replace('.',',') : '-',
-      'Sapt '+getWeek()+'/'+new Date().getFullYear()
-    ].join('\t');
-    lines.push(line);
+      c.sold!=null?String(c.sold).replace('.',','):'-',
+      c.soldScadent!=null?String(c.soldScadent).replace('.',','):'-',
+      c.zile!=null?String(c.zile):'-',
+      c.incasari!=null?String(c.incasari).replace('.',','):'-',
+      c.estimat!=null?String(c.estimat).replace('.',','):'-',
+      'Sapt '+getWeek()+' / '+new Date().getFullYear()
+    ];
+    lines.push(r.join(SEP));
   });
-
-  var csv = BOM + lines.join('\n');
-  var blob = new Blob([csv], {type:'text/tab-separated-values;charset=utf-8'});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  var date = new Date().toLocaleDateString('ro-RO').replace(/\//g,'-');
-  var filename = type==='agent'
-    ? 'distribapp_'+agentName+'_sapt'+getWeek()+'_'+date+'.xls'
-    : type==='week'
-    ? 'distribapp_estimari_sapt'+getWeek()+'_'+date+'.xls'
-    : 'distribapp_complet_sapt'+getWeek()+'_'+date+'.xls';
-  a.href=url; a.download=filename;
+  var csv=BOM+lines.join(NL);
+  var blob=new Blob([csv],{type:'text/plain;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  var d=new Date();
+  var dateStr=d.getDate()+'.'+(d.getMonth()+1)+'.'+d.getFullYear();
+  var fname=type==='agent'?'export_'+agentName+'_sapt'+getWeek()+'.xls':type==='week'?'export_estimari_sapt'+getWeek()+'.xls':'export_complet_sapt'+getWeek()+'.xls';
+  a.href=url; a.download=fname;
   document.body.appendChild(a); a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showToast('✓ Export descărcat: '+filename);
+  showToast('Export descarcat!');
 }
 
 function buildPasswords(){
