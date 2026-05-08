@@ -158,6 +158,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .btn-cn{background:var(--surface2);color:var(--text);font-family:var(--font);font-weight:700;font-size:14px;border:1px solid var(--border);border-radius:11px;padding:13px;cursor:pointer;}
 
 .empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
+.est-status{border-radius:10px;padding:10px 12px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;}
+.est-status.normal{background:rgba(0,212,255,0.07);border:1px solid rgba(0,212,255,0.18);}
+.est-status.depasit{background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);}
+.est-status-item{text-align:center;}
+.est-status-lbl{font-size:9px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;margin-bottom:3px;}
+.est-status-val{font-size:13px;font-weight:700;font-family:var(--mono);}
 .empty-state .ei{font-size:40px;margin-bottom:12px;}
 .empty-state p{font-size:14px;}
 .search-bar{display:flex;gap:8px;margin-bottom:12px;align-items:center;}
@@ -457,6 +463,41 @@ function render(){
 // ══════════════════════════════════════
 // AGENT VIEW
 // ══════════════════════════════════════
+function buildEstimatStatus(c){
+  var hasEst = c.estimat!==null && c.estimat!==undefined;
+  var hasInitial = c.estimatInitial!==null && c.estimatInitial!==undefined;
+  var incasat = c.incasatDinEstimat||0;
+
+  // No estimat yet - show nothing extra
+  if(!hasEst && !hasInitial) return '';
+
+  // Has estimat but no incasari yet from update
+  if(hasEst && incasat===0){
+    return '<div class="saved-tag">✓ Estimat trimis: '+fmt(c.estimat)+'</div>';
+  }
+
+  // Has incasari din estimat
+  var estimatInitial = c.estimatInitial||c.estimat||0;
+  var ramas = estimatInitial - incasat;
+  var depasit = ramas < 0;
+
+  var html = '<div class="est-status '+(depasit?'depasit':'normal')+'">'
+    +'<div class="est-status-item">'
+    +'<div class="est-status-lbl">Estimat inițial</div>'
+    +'<div class="est-status-val" style="color:var(--accent)">'+fmt(estimatInitial)+'</div>'
+    +'</div>'
+    +'<div class="est-status-item">'
+    +'<div class="est-status-lbl">Încasat din estimat</div>'
+    +'<div class="est-status-val" style="color:var(--green)">'+fmt(incasat)+'</div>'
+    +'</div>'
+    +'<div class="est-status-item">'
+    +'<div class="est-status-lbl">'+(depasit?'✅ Depășit cu':'Estimat rămas')+'</div>'
+    +'<div class="est-status-val" style="color:'+(depasit?'var(--green)':'var(--orange)')+'">'+fmt(Math.abs(ramas))+'</div>'
+    +'</div>'
+    +'</div>';
+  return html;
+}
+
 function buildClientCard(c){
   var zc=c.zile>90?'var(--red)':c.zile>45?'var(--orange)':'var(--green)';
   var hasEst=c.estimat!==null&&c.estimat!==undefined;
@@ -476,7 +517,7 @@ function buildClientCard(c){
     +'<input class="est-input" type="number" id="est_'+c.id+'" inputmode="numeric" placeholder="0 lei" value="'+(hasEst?c.estimat:'')+'">'
     +'<button class="btn-send" data-id="'+c.id+'">Trimite</button>'
     +'</div>'
-    +(hasEst?'<div class="saved-tag">✓ Trimis: '+fmt(c.estimat)+'</div>':'')
+    +buildEstimatStatus(c)
     +'</div></div>';
 }
 
@@ -563,7 +604,14 @@ function renderAgent(){
       var v=parseFloat(document.getElementById('est_'+id).value);
       if(isNaN(v)||v<0){showToast('⚠️ Sumă invalidă',true);return;}
       try{
-        await updateDoc(doc(db,'clients',id),{estimat:v,estimatUpdatedAt:serverTimestamp()});
+        // Save estimat and set estimatInitial only if not already set
+        var cData = DATA.find(function(x){return x.id===id;});
+        var updateObj = {estimat:v, estimatUpdatedAt:serverTimestamp()};
+        if(cData && (cData.estimatInitial===null || cData.estimatInitial===undefined)){
+          updateObj.estimatInitial = v;
+          updateObj.incasatDinEstimat = 0;
+        }
+        await updateDoc(doc(db,'clients',id), updateObj);
         showToast('✓ Estimat trimis!');
       }catch(e){showToast('⚠️ Eroare la salvare',true);}
     });
@@ -574,7 +622,7 @@ function renderAgent(){
 // ADMIN VIEW
 // ══════════════════════════════════════
 function renderAdmin(){
-  var tabLabels={overview:'📊 Clienți',agents:'👥 Estimări',add:'+ Adaugă',import:'📥 Import',export:'📤 Export',passwords:'🔑 Parole'};
+  var tabLabels={overview:'📊 Clienți',agents:'👥 Estimări',add:'+ Adaugă',import:'📥 Import',update:'🔄 Update Miercuri',export:'📤 Export',passwords:'🔑 Parole'};
   var tabs='<div class="tabs">'+Object.keys(tabLabels).map(function(k){
     return '<button class="tab'+(adminTab===k?' active':'')+'" data-tab="'+k+'">'+tabLabels[k]+'</button>';
   }).join('')+'</div>';
@@ -584,6 +632,7 @@ function renderAdmin(){
   else if(adminTab==='agents') body=buildAgents();
   else if(adminTab==='add')    body=buildAdd();
   else if(adminTab==='import') body=buildImport();
+  else if(adminTab==='update')    body=buildUpdate();
   else if(adminTab==='export')    body=buildExport();
   else if(adminTab==='passwords') body=buildPasswords();
 
@@ -645,6 +694,10 @@ function renderAdmin(){
         }catch(e){ showToast('⚠️ Eroare la resetare',true); }
       },'Șterge tot');
     });
+  }
+  if(adminTab==='update'){
+    document.getElementById('updatePasteArea').addEventListener('input', previewUpdate);
+    document.getElementById('updateBtn').addEventListener('click', doUpdate);
   }
   if(adminTab==='export'){
     document.getElementById('exportAllBtn').addEventListener('click', function(){ doExport('all'); });
@@ -776,7 +829,8 @@ async function addClient(){
       zile:parseInt(document.getElementById('addZile').value)||0,
       incasari:parseFloat(document.getElementById('addIncasari').value)||0,
       scadenta30:0, rest:0,
-      estimat:null, createdAt:serverTimestamp()
+      estimat:null, estimatInitial:null, incasatDinEstimat:0,
+      createdAt:serverTimestamp()
     });
     showToast('✓ Client adăugat!'); adminTab='overview'; renderAdmin();
   }catch(e){ showToast('⚠️ Eroare la adăugare',true); }
@@ -869,6 +923,108 @@ async function doImport(){
     },
     'Importă'
   );
+}
+
+function buildUpdate(){
+  return '<div class="sec-title">🔄 Actualizare Încasări (Miercuri)</div>'
+    +'<div class="card">'
+    +'<div class="col-hint">'
+    +'<b>Cum funcționează:</b><br>'
+    +'1. Copiază din Excel doar 2 coloane: <b style="color:var(--accent)">Nume firmă</b> și <b style="color:var(--accent)">Încasări săpt. actuală</b><br>'
+    +'2. Lipește mai jos și apasă „Actualizează"<br>'
+    +'3. Aplicația potrivește după nume și calculează automat:<br>'
+    +'&nbsp;&nbsp;&nbsp;• Actualizează câmpul Încasări<br>'
+    +'&nbsp;&nbsp;&nbsp;• Scade din estimatul agentului<br>'
+    +'&nbsp;&nbsp;&nbsp;• Arată estimatul rămas sau depășirea<br>'
+    +'4. Estimările agenților rămân <b style="color:var(--green)">intacte</b><br><br>'
+    +'<b>Ordinea coloanelor:</b><br>'
+    +'A: Nume firmă &nbsp;·&nbsp; B: Încasări săpt. actuală</div>'
+    +'<div class="ff"><label>Date din Excel (2 coloane)</label>'
+    +'<textarea class="ff paste-area" id="updatePasteArea" placeholder="Lipește: Nume firma TAB Suma incasata..."></textarea></div>'
+    +'<div id="updatePreview" style="margin-top:10px"></div>'
+    +'<button class="btn-green" id="updateBtn" style="margin-top:12px">🔄 Actualizează Încasările</button>'
+    +'</div>';
+}
+
+function previewUpdate(){
+  var raw=(document.getElementById('updatePasteArea').value||'').trim();
+  var prev=document.getElementById('updatePreview');
+  if(!raw){prev.innerHTML='';return;}
+  var rows=raw.split('\n').filter(function(r){return r.trim();});
+  var h='<div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">'+rows.length+' rânduri detectate</div>';
+  rows.slice(0,4).forEach(function(r){
+    var c=r.split('\t');
+    var nume=(c[0]||'').trim();
+    var suma=parseNum(c[1]||'0');
+    // Try to find match
+    var match=DATA.find(function(x){return x.nume.toLowerCase()===nume.toLowerCase();});
+    h+='<div class="pr">'
+      +'<b>'+nume+'</b> · Încasat: '+fmt(suma)
+      +(match?' · <span style="color:var(--green)">✓ găsit</span>':'· <span style="color:var(--orange)">⚠ negăsit</span>')
+      +'</div>';
+  });
+  if(rows.length>4) h+='<div class="pr" style="color:var(--muted)">... și încă '+(rows.length-4)+' rânduri</div>';
+  prev.innerHTML=h;
+}
+
+async function doUpdate(){
+  var raw=(document.getElementById('updatePasteArea').value||'').trim();
+  if(!raw){showToast('⚠️ Lipește date mai întâi',true);return;}
+  var rows=raw.split('\n').filter(function(r){return r.trim();});
+
+  var matched=[], notFound=[];
+  rows.forEach(function(r){
+    var c=r.split('\t');
+    var nume=(c[0]||'').trim().replace(/\r/,'');
+    var suma=parseNum(c[1]||'0');
+    if(!nume) return;
+    var client=DATA.find(function(x){return x.nume.toLowerCase()===nume.toLowerCase();});
+    if(client) matched.push({client:client, suma:suma});
+    else notFound.push(nume);
+  });
+
+  if(!matched.length){showToast('⚠️ Nicio firmă găsită în baza de date',true);return;}
+
+  var msg='Se actualizează '+matched.length+' firme cu noile încasări.';
+  if(notFound.length) msg+='
+
+⚠️ '+notFound.length+' firme negăsite (numele nu se potrivește exact):
+'+notFound.slice(0,5).join(', ')+(notFound.length>5?'...':'');
+  msg+='
+
+Estimările agenților rămân intacte. Continuați?';
+
+  showConfirm('Actualizare încasări', msg, async function(){
+    try{
+      var batch=writeBatch(db);
+      matched.forEach(function(item){
+        var c=item.client;
+        var novaIncasare=item.suma;
+        var estimatInitial=c.estimatInitial!==null&&c.estimatInitial!==undefined ? c.estimatInitial : (c.estimat||null);
+        var incasatDinEstimat = c.estimat!==null&&c.estimat!==undefined ? novaIncasare : 0;
+        var updateObj={
+          incasari: novaIncasare,
+          incasatDinEstimat: incasatDinEstimat,
+          updatedAt: serverTimestamp()
+        };
+        // Set estimatInitial if agent has estimat but initial wasn't saved yet
+        if(c.estimat!==null && c.estimat!==undefined &&
+           (c.estimatInitial===null || c.estimatInitial===undefined)){
+          updateObj.estimatInitial = c.estimat;
+        }
+        // Update estimat to remaining amount (but keep estimatInitial)
+        if(c.estimat!==null && c.estimat!==undefined){
+          var ramas = (estimatInitial||c.estimat) - novaIncasare;
+          updateObj.estimat = Math.max(0, ramas);
+        }
+        batch.update(doc(db,'clients',c.id), updateObj);
+      });
+      await batch.commit();
+      showToast('✓ '+matched.length+' firme actualizate!'+(notFound.length?' ('+notFound.length+' negăsite)':''));
+      adminTab='overview';
+      renderAdmin();
+    }catch(e){showToast('⚠️ Eroare la actualizare: '+e.message,true);}
+  }, 'Actualizează '+matched.length+' firme');
 }
 
 function buildExport(){
