@@ -985,14 +985,9 @@ async function doUpdate(){
 
   if(!matched.length){showToast('⚠️ Nicio firmă găsită în baza de date',true);return;}
 
-  var msg='Se actualizează '+matched.length+' firme cu noile încasări.';
-  if(notFound.length) msg+='
-
-⚠️ '+notFound.length+' firme negăsite (numele nu se potrivește exact):
-'+notFound.slice(0,5).join(', ')+(notFound.length>5?'...':'');
-  msg+='
-
-Estimările agenților rămân intacte. Continuați?';
+  var msg='Se actualizeaza '+matched.length+' firme cu noile incasari.';
+  if(notFound.length) msg+=' ('+notFound.length+' firme negasite)';
+  msg+=' Estimarile agentilor raman intacte. Continuati?';
 
   showConfirm('Actualizare încasări', msg, async function(){
     try{
@@ -1007,7 +1002,7 @@ Estimările agenților rămân intacte. Continuați?';
           incasatDinEstimat: incasatDinEstimat,
           updatedAt: serverTimestamp()
         };
-        // Set estimatInitial if agent has estimat but initial wasn't saved yet
+        // Set estimatInitial if agent has estimat but initial was not saved yet
         if(c.estimat!==null && c.estimat!==undefined &&
            (c.estimatInitial===null || c.estimatInitial===undefined)){
           updateObj.estimatInitial = c.estimat;
