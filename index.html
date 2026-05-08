@@ -928,12 +928,11 @@ function doExport(type, agentName){
       c.incasari!=null ? String(c.incasari).replace('.',',') : '-',
       c.estimat!=null ? String(c.estimat).replace('.',',') : '-',
       'Sapt '+getWeek()+'/'+new Date().getFullYear()
-    ].join('	');
+    ].join('\t');
     lines.push(line);
   });
 
-  var csv = BOM + lines.join('
-');
+  var csv = BOM + lines.join('\n');
   var blob = new Blob([csv], {type:'text/tab-separated-values;charset=utf-8'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
