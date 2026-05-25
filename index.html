@@ -57,10 +57,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .main-content{flex:1;padding:18px 14px 100px;max-width:600px;margin:0 auto;width:100%;}
 
 /* TABS */
-.tabs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:20px;background:var(--surface);padding:5px;border-radius:13px;border:1px solid var(--border);}
-.tab{flex:1;min-width:calc(33% - 5px);padding:9px 6px;text-align:center;border-radius:9px;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted);border:none;background:none;font-family:var(--font);white-space:nowrap;}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:20px;background:var(--surface);padding:5px;border-radius:13px;border:1px solid var(--border);}
+.tab{padding:9px 4px;text-align:center;border-radius:9px;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted);border:none;background:none;font-family:var(--font);white-space:nowrap;}
 .tab.active{background:var(--accent);color:#000;}
-@media(min-width:500px){.tab{min-width:0;flex:1;}}
 
 /* CARDS */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:18px;margin-bottom:14px;}
@@ -724,7 +723,13 @@ function renderAgent(){
 // ══════════════════════════════════════
 function renderAdmin(){
   var tabLabels={overview:'📊 Clienți',agents:'👥 Estimări',add:'+ Adaugă',import:'📥 Import',invoices:'🧾 Facturi',update:'🔄 Update',export:'📤 Export',passwords:'🔑 Parole'};
-  var tabs='<div class="tabs">'+Object.keys(tabLabels).map(function(k){
+  var tabKeys=Object.keys(tabLabels);
+  var row1=tabKeys.slice(0,4);
+  var row2=tabKeys.slice(4);
+  var tabs='<div class="tabs">'+row1.map(function(k){
+    return '<button class="tab'+(adminTab===k?' active':'')+'" data-tab="'+k+'">'+tabLabels[k]+'</button>';
+  }).join('')+'</div>'
+  +'<div class="tabs" style="margin-top:-14px;">'+row2.map(function(k){
     return '<button class="tab'+(adminTab===k?' active':'')+'" data-tab="'+k+'">'+tabLabels[k]+'</button>';
   }).join('')+'</div>';
 
