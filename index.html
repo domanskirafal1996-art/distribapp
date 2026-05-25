@@ -164,6 +164,26 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .est-status-item{text-align:center;}
 .est-status-lbl{font-size:9px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;margin-bottom:3px;}
 .est-status-val{font-size:13px;font-weight:700;font-family:var(--mono);}
+.inv-list{margin-top:12px;}
+.inv-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:8px;transition:border-color 0.2s;}
+.inv-item.bifat{border-color:var(--green);background:rgba(16,185,129,0.06);}
+.inv-item.partial{border-color:var(--accent);background:rgba(0,212,255,0.05);}
+.inv-header{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.inv-check{width:20px;height:20px;border:2px solid var(--border);border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;font-size:12px;font-weight:700;}
+.inv-check.on{background:var(--green);border-color:var(--green);color:#000;}
+.inv-nr{font-size:12px;font-weight:700;font-family:var(--mono);flex:1;}
+.inv-scad{font-size:10px;color:var(--muted);font-family:var(--mono);}
+.inv-sums{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;}
+.inv-sum-box{background:var(--surface);border-radius:7px;padding:7px 9px;}
+.inv-sum-lbl{font-size:9px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;}
+.inv-sum-val{font-size:12px;font-weight:700;font-family:var(--mono);margin-top:2px;}
+.inv-partial-wrap{margin-top:8px;display:flex;gap:8px;align-items:center;}
+.inv-partial-input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;}
+.inv-partial-input:focus{border-color:var(--accent);}
+.btn-inv-save{background:var(--accent);color:#000;font-family:var(--font);font-weight:700;font-size:12px;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;white-space:nowrap;}
+.inv-section-title{font-size:12px;font-weight:700;color:var(--text);margin:14px 0 8px;display:flex;align-items:center;justify-content:space-between;}
+.inv-empty{font-size:12px;color:var(--muted);font-family:var(--mono);text-align:center;padding:16px;}
+.inv-toggle-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;font-family:var(--font);margin-top:10px;width:100%;}
 .empty-state .ei{font-size:40px;margin-bottom:12px;}
 .empty-state p{font-size:14px;}
 .search-bar{display:flex;gap:8px;margin-bottom:12px;align-items:center;}
@@ -290,7 +310,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, getDoc, writeBatch, serverTimestamp, query, orderBy }
+import { getFirestore, collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, getDoc, getDocs, writeBatch, serverTimestamp, query, orderBy, where }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ── FIREBASE CONFIG ──
@@ -308,7 +328,8 @@ const db  = getFirestore(app);
 
 // ── COLLECTIONS ──
 const clientsCol  = collection(db, 'clients');
-const settingsCol = collection(db, 'settings');
+const settingsCol  = collection(db, 'settings');
+const invoicesCol  = collection(db, 'invoices');
 
 // ── STATE ──
 const ROLES = {admin:'admin',Distribuitori:'agent',Chirii:'agent',Radu:'agent',Mihaela:'agent',Razvanel:'agent',Marian:'agent',Ionut:'agent',Claudiu:'agent',Dumitru:'agent',Mihai:'agent',DumitruC:'agent',Virgil:'agent'};
@@ -325,6 +346,8 @@ let searchQ     = '';
 let filterAgent = 'Toti';
 let sortBy      = 'nume';
 let agentSearchQ = '';
+let INVOICES = {};  // keyed by clientId
+let expandedInvoices = {}; // track which clients have invoices expanded
 let unsubClients = null;
 
 // ── UTILS ──
@@ -450,7 +473,21 @@ function startLiveSync(){
     render();
   }, function(err){
     setSyncDot(false);
-    showToast('⚠️ Eroare conexiune',true);
+    showToast('Eroare conexiune',true);
+  });
+  // Load invoices once and listen for changes
+  onSnapshot(invoicesCol, function(snapshot){
+    INVOICES = {};
+    snapshot.docs.forEach(function(d){
+      var inv = Object.assign({id:d.id}, d.data());
+      if(!INVOICES[inv.clientId]) INVOICES[inv.clientId] = [];
+      INVOICES[inv.clientId].push(inv);
+    });
+    // Sort each client invoices by scadenta
+    Object.keys(INVOICES).forEach(function(cid){
+      INVOICES[cid].sort(function(a,b){ return (a.scadenta||'').localeCompare(b.scadenta||''); });
+    });
+    render();
   });
 }
 
@@ -463,6 +500,67 @@ function render(){
 // ══════════════════════════════════════
 // AGENT VIEW
 // ══════════════════════════════════════
+function buildInvoiceSection(c){
+  var invList = INVOICES[c.id] || [];
+  var isExpanded = expandedInvoices[c.id];
+
+  if(!invList.length){
+    return '<div class="inv-toggle-btn" style="color:var(--muted);cursor:default;opacity:0.5">📄 Fara facturi scadente</div>';
+  }
+
+  var totalRest = invList.reduce(function(s,i){return s+(i.restPlata||0);},0);
+  var bifate = invList.filter(function(i){return i.bifat;}).length;
+
+  var html = '<button class="inv-toggle-btn" data-cid="'+c.id+'">'
+    +'📄 '+(isExpanded?'Ascunde':'Vezi')+' facturi scadente ('+invList.length+')'
+    +' · Rest: <b>'+fmtShort(totalRest)+'</b>'
+    +(bifate>0?' · <span style="color:var(--green)">'+bifate+' bifate</span>':'')
+    +'</button>';
+
+  if(!isExpanded) return html;
+
+  html += '<div class="inv-list">';
+  invList.forEach(function(inv){
+    var isBifat = inv.bifat || false;
+    var hasPartial = inv.sumaPartiala && inv.sumaPartiala > 0;
+    html += '<div class="inv-item'+(isBifat?' bifat':hasPartial?' partial':'')+'" data-inv-id="'+inv.id+'">'
+      +'<div class="inv-header">'
+      +'<div class="inv-check'+(isBifat?' on':'')+'" data-inv-toggle="'+inv.id+'" data-client-id="'+c.id+'">'+(isBifat?'✓':'')+'</div>'
+      +'<div class="inv-nr">'+inv.nrFactura+'</div>'
+      +'<div class="inv-scad">Scad: '+formatDate(inv.scadenta)+'</div>'
+      +'</div>'
+      +'<div class="inv-sums">'
+      +'<div class="inv-sum-box"><div class="inv-sum-lbl">Suma totala</div><div class="inv-sum-val">'+fmt(inv.sumaTotal)+'</div></div>'
+      +'<div class="inv-sum-box"><div class="inv-sum-lbl">Rest de plata</div><div class="inv-sum-val" style="color:var(--orange)">'+fmt(inv.restPlata)+'</div></div>'
+      +'</div>'
+      +'<div class="inv-partial-wrap">'
+      +'<input class="inv-partial-input" type="number" inputmode="numeric" placeholder="Suma partiala (optional)..." '
+      +'id="partial_'+inv.id+'" value="'+(inv.sumaPartiala||'')+'">'
+      +'<button class="btn-inv-save" data-inv-save="'+inv.id+'" data-client-id="'+c.id+'">Salveaza</button>'
+      +'</div>'
+      +'</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function formatDate(d){
+  if(!d) return '-';
+  // d is YYYY-MM-DD or DD.MM.YYYY
+  if(d.indexOf('-')!==-1){
+    var p=d.split('-'); return p[2]+'.'+p[1]+'.'+p[0];
+  }
+  return d;
+}
+
+function fmtShort(n){
+  if(!n&&n!==0) return '-';
+  var x=Number(n);
+  if(isNaN(x)) return '-';
+  if(x>=1000) return (x/1000).toFixed(1).replace('.',',')+'K lei';
+  return x.toLocaleString('ro-RO')+' lei';
+}
+
 function buildEstimatStatus(c){
   var hasEst = c.estimat!==null && c.estimat!==undefined;
   var hasInitial = c.estimatInitial!==null && c.estimatInitial!==undefined;
@@ -518,7 +616,9 @@ function buildClientCard(c){
     +'<button class="btn-send" data-id="'+c.id+'">Trimite</button>'
     +'</div>'
     +buildEstimatStatus(c)
-    +'</div></div>';
+    +'</div>'
+    +buildInvoiceSection(c)
+    +'</div>';
 }
 
 function renderAgent(){
@@ -622,7 +722,7 @@ function renderAgent(){
 // ADMIN VIEW
 // ══════════════════════════════════════
 function renderAdmin(){
-  var tabLabels={overview:'📊 Clienți',agents:'👥 Estimări',add:'+ Adaugă',import:'📥 Import',update:'🔄 Update Miercuri',export:'📤 Export',passwords:'🔑 Parole'};
+  var tabLabels={overview:'📊 Clienți',agents:'👥 Estimări',add:'+ Adaugă',import:'📥 Import',invoices:'🧾 Facturi',update:'🔄 Update',export:'📤 Export',passwords:'🔑 Parole'};
   var tabs='<div class="tabs">'+Object.keys(tabLabels).map(function(k){
     return '<button class="tab'+(adminTab===k?' active':'')+'" data-tab="'+k+'">'+tabLabels[k]+'</button>';
   }).join('')+'</div>';
@@ -632,6 +732,7 @@ function renderAdmin(){
   else if(adminTab==='agents') body=buildAgents();
   else if(adminTab==='add')    body=buildAdd();
   else if(adminTab==='import') body=buildImport();
+  else if(adminTab==='invoices')  body=buildInvoicesImport();
   else if(adminTab==='update')    body=buildUpdate();
   else if(adminTab==='export')    body=buildExport();
   else if(adminTab==='passwords') body=buildPasswords();
@@ -665,6 +766,35 @@ function renderAdmin(){
     document.querySelectorAll('.fchip').forEach(function(b){
       b.addEventListener('click',function(){ filterAgent=this.getAttribute('data-agent'); renderAdmin(); });
     });
+    // Invoice toggles in admin view too
+    document.querySelectorAll('.inv-toggle-btn[data-cid]').forEach(function(b){
+      b.addEventListener('click',function(){
+        var cid=this.getAttribute('data-cid');
+        expandedInvoices[cid]=!expandedInvoices[cid];
+        renderAdmin();
+      });
+    });
+    document.querySelectorAll('.inv-check[data-inv-toggle]').forEach(function(b){
+      b.addEventListener('click',async function(){
+        var invId=this.getAttribute('data-inv-toggle');
+        var invList=Object.values(INVOICES).flat();
+        var inv=invList.find(function(i){return i.id===invId;});
+        if(!inv) return;
+        try{
+          await updateDoc(doc(db,'invoices',invId),{bifat:!inv.bifat,bifatAt:serverTimestamp()});
+        }catch(e){showToast('Eroare',true);}
+      });
+    });
+    document.querySelectorAll('.btn-inv-save[data-inv-save]').forEach(function(b){
+      b.addEventListener('click',async function(){
+        var invId=this.getAttribute('data-inv-save');
+        var v=parseFloat(document.getElementById('partial_'+invId).value)||0;
+        try{
+          await updateDoc(doc(db,'invoices',invId),{sumaPartiala:v,updatedAt:serverTimestamp()});
+          showToast('Salvat!');
+        }catch(e){showToast('Eroare',true);}
+      });
+    });
     // Edit/Delete
     document.querySelectorAll('.btn-ec').forEach(function(b){
       b.addEventListener('click',function(){openEdit(this.dataset.id);});
@@ -693,6 +823,21 @@ function renderAdmin(){
           showToast('✓ Toate datele au fost șterse');
         }catch(e){ showToast('⚠️ Eroare la resetare',true); }
       },'Șterge tot');
+    });
+  }
+  if(adminTab==='invoices'){
+    document.getElementById('invPasteArea').addEventListener('input', previewInvoices);
+    document.getElementById('invImportBtn').addEventListener('click', doImportInvoices);
+    document.getElementById('invClearBtn').addEventListener('click', function(){
+      showConfirm('Sterge toate facturile','Aceasta va sterge toate facturile din baza de date. Clientii si estimarile raman intacte.',async function(){
+        try{
+          var batch=writeBatch(db);
+          var snap=await getDocs(invoicesCol);
+          snap.docs.forEach(function(d){ batch.delete(d.ref); });
+          await batch.commit();
+          showToast('Toate facturile au fost sterse!');
+        }catch(e){showToast('Eroare la stergere',true);}
+      },'Sterge');
     });
   }
   if(adminTab==='update'){
@@ -1020,6 +1165,98 @@ async function doUpdate(){
       renderAdmin();
     }catch(e){showToast('⚠️ Eroare la actualizare: '+e.message,true);}
   }, 'Actualizează '+matched.length+' firme');
+}
+
+function buildInvoicesImport(){
+  var totalInv=Object.values(INVOICES).flat().length;
+  var clientsWithInv=Object.keys(INVOICES).filter(function(k){return INVOICES[k].length>0;}).length;
+  return '<div class="sec-title">🧾 Import Facturi Scadente</div>'
+    +'<div class="card">'
+    +'<div class="col-hint">'
+    +'<b>In baza de date:</b> '+totalInv+' facturi · '+clientsWithInv+' clienti<br><br>'
+    +'<b>Pasii:</b><br>'
+    +'1. Copiaza din Excel 5 coloane<br>'
+    +'2. Lipeste mai jos si apasa Import<br>'
+    +'3. Facturile apar instant la agenti pe fiecare client<br><br>'
+    +'<b>Ordinea coloanelor:</b><br>'
+    +'A: Nume client &nbsp; B: Nr. factura<br>'
+    +'C: Data scadenta (ZZ.LL.AAAA) &nbsp; D: Suma totala &nbsp; E: Rest de plata</div>'
+    +'<div class="ff"><label>Date din Excel (5 coloane)</label>'
+    +'<textarea class="ff paste-area" id="invPasteArea" placeholder="Lipeste datele copiate din Excel..."></textarea></div>'
+    +'<div id="invPreview" style="margin-top:10px"></div>'
+    +'<button class="btn-purple" id="invImportBtn">🧾 Importa facturi</button>'
+    +'</div>'
+    +'<div class="card">'
+    +'<div class="card-title" style="margin-bottom:8px;color:var(--red)">Resetare facturi</div>'
+    +'<div style="font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:12px;line-height:1.6">Sterge toate facturile. Clientii si estimarile raman intacte.</div>'
+    +'<button class="btn-d" id="invClearBtn" style="width:100%;padding:12px;border-radius:10px;font-size:13px">Sterge toate facturile</button>'
+    +'</div>';
+}
+
+function previewInvoices(){
+  var raw=(document.getElementById('invPasteArea').value||'').trim();
+  var prev=document.getElementById('invPreview');
+  if(!raw){prev.innerHTML='';return;}
+  var rows=raw.split('\n').filter(function(r){return r.trim();});
+  var h='<div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">'+rows.length+' randuri detectate</div>';
+  rows.slice(0,4).forEach(function(r){
+    var c=r.split('\t');
+    var nume=(c[0]||'').trim();
+    var match=DATA.find(function(x){return x.nume.toLowerCase()===nume.toLowerCase();});
+    h+='<div class="pr"><b>'+nume+'</b> · Fact: '+(c[1]||'-')+' · Rest: '+(c[4]||'0')
+      +(match?' · <span style="color:var(--green)">gasit</span>':'· <span style="color:var(--orange)">negasit</span>')
+      +'</div>';
+  });
+  if(rows.length>4) h+='<div class="pr" style="color:var(--muted)">... si inca '+(rows.length-4)+' randuri</div>';
+  prev.innerHTML=h;
+}
+
+async function doImportInvoices(){
+  var raw=(document.getElementById('invPasteArea').value||'').trim();
+  if(!raw){showToast('Lipeste date mai intai',true);return;}
+  var rows=raw.split('\n').filter(function(r){return r.trim();});
+  var toImport=[], notFound=[];
+
+  rows.forEach(function(r){
+    var c=r.split('\t');
+    var nume=(c[0]||'').trim().replace(/\r/,'');
+    if(!nume) return;
+    var client=DATA.find(function(x){return x.nume.toLowerCase()===nume.toLowerCase();});
+    if(!client){ notFound.push(nume); return; }
+    toImport.push({
+      clientId: client.id,
+      clientNume: client.nume,
+      agent: client.agent,
+      nrFactura: (c[1]||'').trim().replace(/\r/,''),
+      scadenta: (c[2]||'').trim().replace(/\r/,''),
+      sumaTotal: parseNum(c[3]),
+      restPlata: parseNum(c[4]),
+      bifat: false,
+      sumaPartiala: 0,
+      createdAt: serverTimestamp()
+    });
+  });
+
+  if(!toImport.length){showToast('Nicio factura valida gasita',true);return;}
+
+  var msg='Se importa '+toImport.length+' facturi pentru '+
+    [...new Set(toImport.map(function(x){return x.clientNume;}))].length+' clienti.';
+  if(notFound.length) msg+=' ('+notFound.length+' clienti negasiti)';
+
+  showConfirm('Import facturi', msg, async function(){
+    try{
+      var chunks=[];
+      for(var i=0;i<toImport.length;i+=400) chunks.push(toImport.slice(i,i+400));
+      for(var ci=0;ci<chunks.length;ci++){
+        var batch=writeBatch(db);
+        chunks[ci].forEach(function(item){ batch.set(doc(invoicesCol), item); });
+        await batch.commit();
+      }
+      showToast(toImport.length+' facturi importate!');
+      adminTab='overview';
+      renderAdmin();
+    }catch(e){showToast('Eroare la import: '+e.message,true);}
+  },'Importa '+toImport.length+' facturi');
 }
 
 function buildExport(){
